@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeApplications    #-}
 
 module Data.Bin (
-    BinView, BinSpec(..)
+    BinView, linView, logView, BinSpec(..)
   , Bin, binIx, Binner, withBinner
   , binRange, binMin, binMax
   ) where
@@ -21,7 +21,22 @@ import           Data.Tagged
 import           GHC.TypeNats
 import           Numeric.Natural
 
+-- | A bidirectional "view" to transform the data type before binning.
+--
+-- See 'linView' for a linear binning, and 'logView' for a logarithmic
+-- binning.
 type BinView a b = forall p. Profunctor p => p b b -> p a a
+
+-- | Linear binning
+linView :: BinView a a
+linView = id
+
+-- | Logarithmic binning (smaller bins at lower levels, larger bins at
+-- higher levels).
+--
+-- Note: can only handle positive values.
+logView :: Floating a => BinView a a
+logView = dimap log exp
 
 view :: BinView a b -> a -> b
 view v = runForget (v (Forget id))
@@ -29,11 +44,14 @@ view v = runForget (v (Forget id))
 review :: BinView a b -> b -> a
 review v = unTagged . v . Tagged
 
-data BinSpec a b = BS { bsMin  :: a
-                      , bsMax  :: a
-                      , bsView :: BinView a b
+-- | Specification of binning
+data BinSpec a b = BS { bsMin  :: a             -- ^ lower bound of values
+                      , bsMax  :: a             -- ^ upper bound of values
+                      , bsView :: BinView a b   -- ^ binning view
                       }
 
+-- | A @'Bin' s n@ is a single bin index out of @n@ partitions of the
+-- original data set.  See 'binIx' to get the raw index.
 newtype Bin s n = Bin { _binIx :: Finite n }
 
 binIx :: Bin s n -> Finite n
