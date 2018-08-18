@@ -13,6 +13,10 @@ module Data.Bin
 --   
 --   See <a>linView</a> for a linear binning, and <a>logView</a> for a
 --   logarithmic binning.
+--   
+--   This type is essentially <tt>Iso</tt> from the <i>lens</i> library,
+--   and any <tt>Iso'</tt> from lens can be used here. However, it is
+--   important that all of these represent <i>monotonic</i> isomorphisms.
 type BinView a b = forall p. Profunctor p => p b b -> p a a
 
 -- | Linear binning
@@ -22,7 +26,10 @@ linView :: BinView a a
 --   higher levels).
 logView :: Floating a => BinView a a
 
--- | Specification of binning
+-- | Specification of binning.
+--   
+--   A <tt><a>BinSpec</a> a b</tt> will bin values of type <tt>a</tt>,
+--   according to a scaling in type <tt>b</tt>.
 data BinSpec a b
 BS :: a -> a -> BinView a b -> BinSpec a b
 
@@ -35,22 +42,80 @@ BS :: a -> a -> BinView a b -> BinSpec a b
 -- | binning view
 [bsView] :: BinSpec a b -> BinView a b
 
+-- | Convenient constructor for a <a>BinSpec</a> for a linear scaling.
+linBS :: a -> a -> BinSpec a a
+
+-- | Convenient constructor for a <a>BinSpec</a> for a logarithmic scaling.
+logBS :: Floating a => a -> a -> BinSpec a a
+
 -- | A <tt><a>Bin</a> s n</tt> is a single bin index out of <tt>n</tt>
---   partitions of the original data set. See <a>binIx</a> to get the raw
---   index.
+--   partitions of the original data set, according to a <a>BinSpec</a>
+--   represented by <tt>s</tt>.
+--   
+--   All <a>Bin</a>s with the same <tt>s</tt> follow the same
+--   <a>BinSpec</a>, so you can safely use <a>binRange</a>
+--   <a>withBinner</a>.
+--   
+--   Actually has <tt>n + 2</tt> partitions, since it also distinguishes
+--   values that are outside the <a>BinSpec</a> range.
 data Bin s n
-binIx :: Bin s n -> Pointed (Finite n)
+
+-- | Extract, potentially, the <a>Bin</a> index. Will return <a>Nothing</a>
+--   if the original value was outside the <a>BinSpec</a> range.
+--   
+--   See <a>binIx</a> for a more specific version, which indicates if the
+--   original value was too high or too low.
 binFin :: Bin s n -> Maybe (Finite n)
+
+-- | The type of a "binning function", given by <a>withBinner</a>. See
+--   <a>withBinner</a> for information on how to use.
 type Binner s a = forall n. KnownNat n => a -> Bin s n
+
+-- | With a <a>BinSpec</a>, give a "binning function" that you can use to
+--   create bins within a continuation. The binning function is meant to be
+--   used with TypeApplications to specify how many bins to use:
+--   
+--   <pre>
+--   <a>withBinner</a> myBinSpec $ toBin -&gt;
+--       toBin @5 2.8523      -- split into five bins
+--   </pre>
 withBinner :: RealFrac b => BinSpec a b -> (forall s. Binner s a -> r) -> r
+
+-- | Extract the minimum and maximum of the range indicabed by a given
+--   <a>Bin</a>.
+--   
+--   A <a>Nothing</a> value indicates that we are outside of the normal
+--   range of the <a>BinSpec</a>, so is "unbounded".
 binRange :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> (Maybe a, Maybe a)
+
+-- | Extract the minimum of the range indicabed by a given <a>Bin</a>.
+--   
+--   A <a>Nothing</a> value means that the original value was below the
+--   minimum limit of the <a>BinSpec</a>, so is "unbounded".
 binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
+
+-- | Extract the maximum of the range indicabed by a given <a>Bin</a>.
+--   
+--   A <a>Nothing</a> value means that the original value was above the
+--   maximum limit of the <a>BinSpec</a>, so is "unbounded".
 binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
+
+-- | Data type extending a value with an extra "minimum" and "maximum"
+--   value.
 data Pointed a
 Bot :: Pointed a
 PElem :: !a -> Pointed a
 Top :: Pointed a
+
+-- | Extract the item from a <a>Pointed</a> if it is neither the extra
+--   minimum or maximum.
 pElem :: Pointed a -> Maybe a
+
+-- | A more specific version of <a>binFin</a> that indicates whether or not
+--   the value was too high or too low for the <a>BinSpec</a> range.
+binIx :: Bin s n -> Pointed (Finite n)
+instance GHC.Classes.Ord (Data.Bin.Bin s n)
+instance GHC.Classes.Eq (Data.Bin.Bin s n)
 instance GHC.Base.Functor Data.Bin.Pointed
 instance GHC.Classes.Ord a => GHC.Classes.Ord (Data.Bin.Pointed a)
 instance GHC.Classes.Eq a => GHC.Classes.Eq (Data.Bin.Pointed a)
