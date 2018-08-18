@@ -8,16 +8,50 @@
 @version 0.1.0.0
 
 module Data.Bin
+
+-- | A bidirectional "view" to transform the data type before binning.
+--   
+--   See <a>linView</a> for a linear binning, and <a>logView</a> for a
+--   logarithmic binning.
 type BinView a b = forall p. Profunctor p => p b b -> p a a
+
+-- | Linear binning
+linView :: BinView a a
+
+-- | Logarithmic binning (smaller bins at lower levels, larger bins at
+--   higher levels).
+logView :: Floating a => BinView a a
+
+-- | Specification of binning
 data BinSpec a b
 BS :: a -> a -> BinView a b -> BinSpec a b
+
+-- | lower bound of values
 [bsMin] :: BinSpec a b -> a
+
+-- | upper bound of values
 [bsMax] :: BinSpec a b -> a
+
+-- | binning view
 [bsView] :: BinSpec a b -> BinView a b
+
+-- | A <tt><a>Bin</a> s n</tt> is a single bin index out of <tt>n</tt>
+--   partitions of the original data set. See <a>binIx</a> to get the raw
+--   index.
 data Bin s n
-binIx :: Bin s n -> Finite n
+binIx :: Bin s n -> Pointed (Finite n)
+binFin :: Bin s n -> Maybe (Finite n)
 type Binner s a = forall n. KnownNat n => a -> Bin s n
 withBinner :: RealFrac b => BinSpec a b -> (forall s. Binner s a -> r) -> r
-binRange :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> (a, a)
-binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> a
-binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> a
+binRange :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> (Maybe a, Maybe a)
+binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
+binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
+data Pointed a
+Bot :: Pointed a
+PElem :: !a -> Pointed a
+Top :: Pointed a
+pElem :: Pointed a -> Maybe a
+instance GHC.Base.Functor Data.Bin.Pointed
+instance GHC.Classes.Ord a => GHC.Classes.Ord (Data.Bin.Pointed a)
+instance GHC.Classes.Eq a => GHC.Classes.Eq (Data.Bin.Pointed a)
+instance GHC.Show.Show a => GHC.Show.Show (Data.Bin.Pointed a)
