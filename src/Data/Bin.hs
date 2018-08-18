@@ -6,10 +6,12 @@
 
 module Data.Bin (
     BinView, BinSpec(..)
-  , Bin, Binner, withBinner
-  , mkBin
+  , Bin, binIx, Binner, withBinner
+  , binRange, binMin, binMax
   ) where
 
+import           Control.Monad
+import           Data.Bifunctor
 import           Data.Finite
 import           Data.Maybe
 import           Data.Profunctor
@@ -32,7 +34,10 @@ data BinSpec a b = BS { bsMin  :: a
                       , bsView :: BinView a b
                       }
 
-newtype Bin s n = Bin { binIx :: Finite n }
+newtype Bin s n = Bin { _binIx :: Finite n }
+
+binIx :: Bin s n -> Finite n
+binIx = _binIx
 
 tick :: Fractional b => BinSpec a b -> Natural -> b
 tick BS{..} n = totRange / fromIntegral n
@@ -70,3 +75,27 @@ withBinner
     -> r
 withBinner bs f = reify bs $ \(_ :: Proxy s) -> f @s mkBin
 
+binRange_
+    :: forall n a b. (KnownNat n, Fractional b)
+    => BinSpec a b
+    -> Finite n
+    -> (a, a)
+binRange_ bs = join bimap (scaleOut . (* t))
+             . (\i -> (i, i + 1))
+             . fromIntegral
+  where
+    t        = tick bs (natVal (Proxy @n))
+    scaleOut = review (bsView bs)
+
+binRange
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    => Bin s n
+    -> (a, a)
+binRange = binRange_ (reflect (Proxy @s)) . binIx
+
+binMin, binMax
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    => Bin s n
+    -> a
+binMin = fst . binRange
+binMax = snd . binRange
