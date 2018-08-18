@@ -1,27 +1,54 @@
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE DeriveFunctor        #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE RecordWildCards      #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns         #-}
+
+-- |
+-- Module      : Data.Bin
+-- Copyright   : (c) Justin Le 2018
+-- License     : BSD3
+--
+-- Maintainer  : justin@jle.im
+-- Stability   : experimental
+-- Portability : non-portable
+--
+-- Tools for aggregating numeric values into a set of discrete bins
+-- according to some binning specification.
+--
+-- See 'withBinner' for main usage information, and 'Bin' for the main
+-- binned data type.
+--
 
 module Data.Bin (
+  -- * Specifying the binning
     BinView, linView, logView
   , BinSpec(..), linBS, logBS
-  , Bin, binFin, Binner, withBinner
-  , binRange, binMin, binMax
+  -- * Creating and manipulating bins
+  , Bin, Binner, withBinner
+  -- ** Inspecting bins
+  , binFin, binRange, binMin, binMax
+  , displayBin
+  -- *** In-depth inspection
   , Pointed(..), pElem, binIx
+  -- * Handy use patterns
+  , binFreq
   ) where
 
 import           Data.Finite
+import           Data.Foldable
 import           Data.Profunctor
 import           Data.Proxy
 import           Data.Reflection
 import           Data.Tagged
 import           GHC.TypeNats
 import           Numeric.Natural
+import           Text.Printf
+import qualified Data.Map        as M
 
 -- | A bidirectional "view" to transform the data type before binning.
 --
@@ -161,7 +188,7 @@ type Binner s a = forall n. KnownNat n => a -> Bin s n
 withBinner
     :: RealFrac b
     => BinSpec a b
-    -> (forall s. Binner s a -> r)
+    -> (forall s. Reifies s (BinSpec a b) => Binner s a -> r)
     -> r
 withBinner bs f = reify bs $ \(_ :: Proxy s) -> f @s mkBin
 
@@ -171,14 +198,12 @@ binRange_
     -> Pointed (Finite n)
     -> (Maybe a, Maybe a)
 binRange_ bs = \case
-    Bot                     -> ( Nothing      , Just minRange)
+    Bot                     -> ( Nothing       , Just (bsMin bs))
     PElem (fromIntegral->i) -> ( Just (scaleOut ( i      * t))
                                , Just (scaleOut ((i + 1) * t))
                                )
-    Top                     -> ( Just maxRange, Nothing      )
+    Top                     -> ( Just (bsMax bs), Nothing       )
   where
-    minRange = scaleOut 0
-    maxRange = scaleOut . fromIntegral . natVal $ Proxy @n
     t        = tick bs (natVal (Proxy @n))
     scaleOut = review (bsView bs)
 
@@ -212,3 +237,35 @@ binMax
     => Bin s n
     -> Maybe a
 binMax = snd . binRange
+
+displayBin
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    => (a -> String)        -- ^ how to display a value
+    -> Bin s n
+    -> String
+displayBin f b = printf "Bin %s .. %s" mn' mx'
+  where
+    (mn, mx) = binRange b
+    mn' = case mn of
+            Nothing -> "("
+            Just m  -> "[" ++ f m
+    mx' = case mx of
+            Nothing -> ")"
+            Just m  -> f m ++ ")"
+
+instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec a b)) => Show (Bin s n) where
+    showsPrec d b = showParen (d > 10) $
+      showString (displayBin @n show b)
+
+
+-- | Given a container of @a@s, generate a frequency map of how often
+-- values in a given discrete bin occurred.
+binFreq
+    :: forall n t a s. (KnownNat n, Foldable t)
+    => Binner s a
+    -> t a
+    -> M.Map (Bin s n) Int
+binFreq toBin = M.unionsWith (+) . map go . toList
+  where
+    go :: a -> M.Map (Bin s n) Int
+    go x = M.singleton (toBin x) 1
