@@ -15,6 +15,9 @@ BS :: a -> a -> BinView a b -> BinSpec a b
 [bsMax] :: BinSpec a b -> a
 [bsView] :: BinSpec a b -> BinView a b
 data Bin s n
+binIx :: Bin s n -> Finite n
 type Binner s a = forall n. KnownNat n => a -> Bin s n
 withBinner :: RealFrac b => BinSpec a b -> (forall s. Binner s a -> r) -> r
-mkBin :: forall n a b s. (KnownNat n, RealFrac b, Reifies s (BinSpec a b)) => a -> Bin s n
+binRange :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> (a, a)
+binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> a
+binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> a
