@@ -1,19 +1,21 @@
+{-# LANGUAGE DeriveFunctor       #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE ViewPatterns        #-}
 
 module Data.Bin (
-    BinView, linView, logView, BinSpec(..)
-  , Bin, binIx, Binner, withBinner
+    BinView, linView, logView
+  , BinSpec(..)
+  , Bin, binIx, binFin, Binner, withBinner
   , binRange, binMin, binMax
+  , Pointed(..), pElem
   ) where
 
-import           Control.Monad
-import           Data.Bifunctor
 import           Data.Finite
-import           Data.Maybe
 import           Data.Profunctor
 import           Data.Proxy
 import           Data.Reflection
@@ -27,16 +29,21 @@ import           Numeric.Natural
 -- binning.
 type BinView a b = forall p. Profunctor p => p b b -> p a a
 
+-- | Construct a 'BinView' based on "to" and "from" functions
+binView
+    :: (a -> b)       -- ^ "to"
+    -> (b -> a)       -- ^ "from"
+    -> BinView a b
+binView = dimap
+
 -- | Linear binning
 linView :: BinView a a
-linView = id
+linView = binView id id
 
 -- | Logarithmic binning (smaller bins at lower levels, larger bins at
 -- higher levels).
---
--- Note: can only handle positive values.
 logView :: Floating a => BinView a a
-logView = dimap log exp
+logView = binView log exp
 
 view :: BinView a b -> a -> b
 view v = runForget (v (Forget id))
@@ -50,27 +57,46 @@ data BinSpec a b = BS { bsMin  :: a             -- ^ lower bound of values
                       , bsView :: BinView a b   -- ^ binning view
                       }
 
+data Pointed a = Bot
+               | PElem !a
+               | Top
+  deriving (Show, Eq, Ord, Functor)
+
+pElem :: Pointed a -> Maybe a
+pElem = \case
+    Bot     -> Nothing
+    PElem x -> Just x
+    Top     -> Nothing
+
 -- | A @'Bin' s n@ is a single bin index out of @n@ partitions of the
 -- original data set.  See 'binIx' to get the raw index.
-newtype Bin s n = Bin { _binIx :: Finite n }
+newtype Bin s n = Bin { _binIx :: Pointed (Finite n) }
 
-binIx :: Bin s n -> Finite n
+binIx :: Bin s n -> Pointed (Finite n)
 binIx = _binIx
+
+binFin :: Bin s n -> Maybe (Finite n)
+binFin = pElem . binIx
 
 tick :: Fractional b => BinSpec a b -> Natural -> b
 tick BS{..} n = totRange / fromIntegral n
   where
-    totRange = scaleIn bsMax - scaleIn bsMin
-    scaleIn  = view bsView
+    totRange = view bsView bsMax - view bsView bsMin
+
+packExtFinite
+    :: KnownNat n
+    => Integer
+    -> Pointed (Finite n)
+packExtFinite n
+    | n < 0     = Bot
+    | otherwise = maybe Top PElem . packFinite $ n
 
 mkBin_
     :: forall n a b. (KnownNat n, RealFrac b)
     => BinSpec a b
     -> a
-    -> Finite n
-mkBin_ bs = fromMaybe maxBound
-          . packFinite
-          . max 0
+    -> Pointed (Finite n)
+mkBin_ bs = packExtFinite
           . round
           . (/ tick bs (natVal (Proxy @n)))
           . subtract (scaleIn (bsMin bs))
@@ -96,24 +122,29 @@ withBinner bs f = reify bs $ \(_ :: Proxy s) -> f @s mkBin
 binRange_
     :: forall n a b. (KnownNat n, Fractional b)
     => BinSpec a b
-    -> Finite n
-    -> (a, a)
-binRange_ bs = join bimap (scaleOut . (* t))
-             . (\i -> (i, i + 1))
-             . fromIntegral
+    -> Pointed (Finite n)
+    -> (Maybe a, Maybe a)
+binRange_ bs = \case
+    Bot                     -> ( Nothing      , Just minRange)
+    PElem (fromIntegral->i) -> ( Just (scaleOut ( i      * t))
+                               , Just (scaleOut ((i + 1) * t))
+                               )
+    Top                     -> ( Just maxRange, Nothing      )
   where
+    minRange = scaleOut 0
+    maxRange = scaleOut . fromIntegral . natVal $ Proxy @n
     t        = tick bs (natVal (Proxy @n))
     scaleOut = review (bsView bs)
 
 binRange
     :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
     => Bin s n
-    -> (a, a)
+    -> (Maybe a, Maybe a)
 binRange = binRange_ (reflect (Proxy @s)) . binIx
 
 binMin, binMax
     :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
     => Bin s n
-    -> a
+    -> Maybe a
 binMin = fst . binRange
 binMax = snd . binRange
