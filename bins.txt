@@ -12,7 +12,8 @@
 --   according to some binning specification.
 --   
 --   See <a>withBinner</a> for main usage information, and <a>Bin</a> for
---   the main binned data type.
+--   the main binned data type, and <a>binFreq</a> for a common usage
+--   example.
 module Data.Bin
 
 -- | A bidirectional "view" to transform the data type before binning.
@@ -106,6 +107,7 @@ binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) =>
 --   maximum limit of the <a>BinSpec</a>, so is "unbounded".
 binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
 displayBin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => (a -> String) -> Bin s n -> String
+displayBinDouble :: forall n b s. (KnownNat n, Fractional b, Reifies s (BinSpec Double b)) => Int -> Bin s n -> String
 
 -- | Data type extending a value with an extra "minimum" and "maximum"
 --   value.
@@ -124,6 +126,32 @@ binIx :: Bin s n -> Pointed (Finite n)
 
 -- | Given a container of <tt>a</tt>s, generate a frequency map of how
 --   often values in a given discrete bin occurred.
+--   
+--   <pre>
+--   xs :: [Double]
+--   xs = [1..100]
+--   
+--   main :: IO ()
+--   main = withBinner (logBS 5 50) $ toBin -&gt;
+--       mapM_ ((b, n) -&gt; putStrLn (displayBin 4 b ++ "t" ++ show n))
+--     . M.toList
+--     $ binFreq @10 toBin xs
+--   </pre>
+--   
+--   <pre>
+--   (-inf .. 5.0000)        4
+--   [5.0000 .. 6.2946)      1
+--   [6.2946 .. 7.9245)      2
+--   [7.9245 .. 9.9763)      1
+--   [9.9763 .. 12.5594)     3
+--   [12.5594 .. 15.8114)    3
+--   [15.8114 .. 19.9054)    3
+--   [19.9054 .. 25.0594)    5
+--   [25.0594 .. 31.5479)    6
+--   [31.5479 .. 39.7164)    7
+--   [39.7164 .. 50.0000)    9
+--   [50.0000 .. +inf)       56
+--   </pre>
 binFreq :: forall n t a s. (KnownNat n, Foldable t) => Binner s a -> t a -> Map (Bin s n) Int
 instance GHC.Classes.Ord (Data.Bin.Bin s n)
 instance GHC.Classes.Eq (Data.Bin.Bin s n)
