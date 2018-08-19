@@ -21,7 +21,7 @@
 -- according to some binning specification.
 --
 -- See 'withBinner' for main usage information, and 'Bin' for the main
--- binned data type.
+-- binned data type, and 'binFreq' for a common usage example.
 --
 
 module Data.Bin (
@@ -32,7 +32,8 @@ module Data.Bin (
   , Bin, Binner, withBinner
   -- ** Inspecting bins
   , binFin, binRange, binMin, binMax
-  , displayBin
+  -- ** Showing bins
+  , displayBin, displayBinDouble
   -- *** In-depth inspection
   , Pointed(..), pElem, binIx
   -- * Handy use patterns
@@ -199,12 +200,13 @@ binRange_
     -> (Maybe a, Maybe a)
 binRange_ bs = \case
     Bot                     -> ( Nothing       , Just (bsMin bs))
-    PElem (fromIntegral->i) -> ( Just (scaleOut ( i      * t))
-                               , Just (scaleOut ((i + 1) * t))
+    PElem (fromIntegral->i) -> ( Just (scaleOut ( i      * t + scaleIn (bsMin bs)))
+                               , Just (scaleOut ((i + 1) * t + scaleIn (bsMin bs)))
                                )
     Top                     -> ( Just (bsMax bs), Nothing       )
   where
     t        = tick bs (natVal (Proxy @n))
+    scaleIn  = view (bsView bs)
     scaleOut = review (bsView bs)
 
 -- | Extract the minimum and maximum of the range indicabed by a given
@@ -243,23 +245,55 @@ displayBin
     => (a -> String)        -- ^ how to display a value
     -> Bin s n
     -> String
-displayBin f b = printf "Bin %s .. %s" mn' mx'
+displayBin f b = printf "%s .. %s" mn' mx'
   where
     (mn, mx) = binRange b
     mn' = case mn of
-            Nothing -> "("
+            Nothing -> "(-inf"
             Just m  -> "[" ++ f m
     mx' = case mx of
-            Nothing -> ")"
+            Nothing -> "+inf)"
             Just m  -> f m ++ ")"
+
+displayBinDouble
+    :: forall n b s. (KnownNat n, Fractional b, Reifies s (BinSpec Double b))
+    => Int                      -- ^ number of decimal places to round
+    -> Bin s n
+    -> String
+displayBinDouble d = displayBin (printf ("%." ++ show d ++ "f"))
 
 instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec a b)) => Show (Bin s n) where
     showsPrec d b = showParen (d > 10) $
-      showString (displayBin @n show b)
-
+      showString "Bin " . showString (displayBin @n show b)
 
 -- | Given a container of @a@s, generate a frequency map of how often
 -- values in a given discrete bin occurred.
+--
+-- @
+-- xs :: [Double]
+-- xs = [1..100]
+--
+-- main :: IO ()
+-- main = withBinner (logBS 5 50) $ \toBin ->
+--     mapM_ (\(b, n) -> putStrLn (displayBin 4 b ++ "\t" ++ show n))
+--   . M.toList
+--   $ binFreq @10 toBin xs
+-- @
+--
+-- @
+-- (-inf .. 5.0000)        4
+-- [5.0000 .. 6.2946)      1
+-- [6.2946 .. 7.9245)      2
+-- [7.9245 .. 9.9763)      1
+-- [9.9763 .. 12.5594)     3
+-- [12.5594 .. 15.8114)    3
+-- [15.8114 .. 19.9054)    3
+-- [19.9054 .. 25.0594)    5
+-- [25.0594 .. 31.5479)    6
+-- [31.5479 .. 39.7164)    7
+-- [39.7164 .. 50.0000)    9
+-- [50.0000 .. +inf)       56
+-- @
 binFreq
     :: forall n t a s. (KnownNat n, Foldable t)
     => Binner s a
