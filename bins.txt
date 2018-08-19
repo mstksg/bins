@@ -77,7 +77,7 @@ type Binner s a = forall n. KnownNat n => a -> Bin s n
 --   
 --   <pre>
 --   <a>withBinner</a> myBinSpec $ toBin -&gt;
---       toBin @5 2.8523      -- split into five bins
+--       toBin @5 2.8523      -- assign to one of five bins
 --   </pre>
 withBinner :: RealFrac b => BinSpec a b -> (forall s. Reifies s (BinSpec a b) => Binner s a -> r) -> r
 
@@ -124,8 +124,27 @@ pElem :: Pointed a -> Maybe a
 --   the value was too high or too low for the <a>BinSpec</a> range.
 binIx :: Bin s n -> Pointed (Finite n)
 
--- | Given a container of <tt>a</tt>s, generate a frequency map of how
---   often values in a given discrete bin occurred.
+-- | A <tt><a>Bin</a> s n</tt> is a single bin index out of <tt>n</tt>
+--   partitions of the original data set, according to a <a>BinSpec</a>
+--   represented by <tt>s</tt>.
+--   
+--   All <a>Bin</a>s with the same <tt>s</tt> follow the same
+--   <a>BinSpec</a>, so you can safely use <a>binRange</a>
+--   <a>withBinner</a>.
+--   
+--   Actually has <tt>n + 2</tt> partitions, since it also distinguishes
+--   values that are outside the <a>BinSpec</a> range.
+data SomeBin a n
+SomeBin :: Bin s n -> SomeBin a n
+[getSomeBin] :: SomeBin a n -> Bin s n
+
+-- | Verify that the two reified <a>BinSpec</a> types refer to the same
+--   one, allowing you to use functions like <a>==</a> and <a>compare</a>
+--   on <a>Bin</a>s.
+sameBinSpec :: forall s t a b p. (Reifies s (BinSpec a b), Reifies t (BinSpec a b), Eq a, Fractional b) => p s -> p t -> Maybe (s :~: t)
+
+-- | Generate a histogram: given a container of <tt>a</tt>s, generate a
+--   frequency map of how often values in a given discrete bin occurred.
 --   
 --   <pre>
 --   xs :: [Double]
@@ -159,4 +178,7 @@ instance GHC.Base.Functor Data.Bin.Pointed
 instance GHC.Classes.Ord a => GHC.Classes.Ord (Data.Bin.Pointed a)
 instance GHC.Classes.Eq a => GHC.Classes.Eq (Data.Bin.Pointed a)
 instance GHC.Show.Show a => GHC.Show.Show (Data.Bin.Pointed a)
+instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a) => GHC.Show.Show (Data.Bin.SomeBin a n)
+instance (GHC.TypeNats.KnownNat n, GHC.Classes.Eq a) => GHC.Classes.Eq (Data.Bin.SomeBin a n)
+instance (GHC.TypeNats.KnownNat n, GHC.Classes.Ord a) => GHC.Classes.Ord (Data.Bin.SomeBin a n)
 instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a, GHC.Real.Fractional b, Data.Reflection.Reifies s (Data.Bin.BinSpec a b)) => GHC.Show.Show (Data.Bin.Bin s n)
