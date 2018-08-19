@@ -328,14 +328,13 @@ binFreq toBin = M.unionsWith (+) . map go . toList
     go :: a -> M.Map (Bin s n) Int
     go x = M.singleton (toBin x) 1
 
--- | A @'Bin' s n@ is a single bin index out of @n@ partitions of the
--- original data set, according to a 'BinSpec' represented by @s@.
+-- | A @'SomeBin' a n@ is @'Bin' s n@, except with the 'BinSpec' s hidden.
+-- It's useful for returning out of 'withBinner'.
 --
--- All 'Bin's with the same @s@ follow the same 'BinSpec', so you can
--- safely use 'binRange' 'withBinner'.
+-- It has useful 'Eq' and 'Ord' instances.
 --
--- Actually has @n + 2@ partitions, since it also distinguishes values
--- that are outside the 'BinSpec' range.
+-- To be able to "unify" two 'Bin's inside a 'SomeBin', use 'sameBinSpec'
+-- to verify that the two 'SomeBin's were created with the same 'BinSpec'.
 data SomeBin a n = forall s b. (Fractional b, Reifies s (BinSpec a b)) 
     => SomeBin { getSomeBin :: Bin s n }
 
