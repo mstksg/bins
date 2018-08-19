@@ -124,16 +124,15 @@ pElem :: Pointed a -> Maybe a
 --   the value was too high or too low for the <a>BinSpec</a> range.
 binIx :: Bin s n -> Pointed (Finite n)
 
--- | A <tt><a>Bin</a> s n</tt> is a single bin index out of <tt>n</tt>
---   partitions of the original data set, according to a <a>BinSpec</a>
---   represented by <tt>s</tt>.
---   
---   All <a>Bin</a>s with the same <tt>s</tt> follow the same
---   <a>BinSpec</a>, so you can safely use <a>binRange</a>
+-- | A <tt><a>SomeBin</a> a n</tt> is <tt><a>Bin</a> s n</tt>, except with
+--   the <a>BinSpec</a> s hidden. It's useful for returning out of
 --   <a>withBinner</a>.
 --   
---   Actually has <tt>n + 2</tt> partitions, since it also distinguishes
---   values that are outside the <a>BinSpec</a> range.
+--   It has useful <a>Eq</a> and <a>Ord</a> instances.
+--   
+--   To be able to "unify" two <a>Bin</a>s inside a <a>SomeBin</a>, use
+--   <a>sameBinSpec</a> to verify that the two <a>SomeBin</a>s were created
+--   with the same <a>BinSpec</a>.
 data SomeBin a n
 SomeBin :: Bin s n -> SomeBin a n
 [getSomeBin] :: SomeBin a n -> Bin s n
