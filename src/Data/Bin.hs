@@ -1,12 +1,19 @@
-{-# LANGUAGE DeriveFunctor        #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE LambdaCase           #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE RecordWildCards      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeApplications     #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ViewPatterns         #-}
+{-# LANGUAGE ApplicativeDo                            #-}
+{-# LANGUAGE DataKinds                                #-}
+{-# LANGUAGE DeriveFunctor                            #-}
+{-# LANGUAGE ExistentialQuantification                #-}
+{-# LANGUAGE FlexibleContexts                         #-}
+{-# LANGUAGE LambdaCase                               #-}
+{-# LANGUAGE RankNTypes                               #-}
+{-# LANGUAGE RecordWildCards                          #-}
+{-# LANGUAGE ScopedTypeVariables                      #-}
+{-# LANGUAGE StandaloneDeriving                       #-}
+{-# LANGUAGE TypeApplications                         #-}
+{-# LANGUAGE TypeOperators                            #-}
+{-# LANGUAGE UndecidableInstances                     #-}
+{-# LANGUAGE ViewPatterns                             #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
+{-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise       #-}
 
 -- |
 -- Module      : Data.Bin
@@ -36,20 +43,26 @@ module Data.Bin (
   , displayBin, displayBinDouble
   -- *** In-depth inspection
   , Pointed(..), pElem, binIx
+  -- * Untyped
+  , SomeBin(..), sameBinSpec
   -- * Handy use patterns
   , binFreq
   ) where
 
+import           Control.Monad
 import           Data.Finite
 import           Data.Foldable
 import           Data.Profunctor
 import           Data.Proxy
 import           Data.Reflection
 import           Data.Tagged
+import           Data.Type.Equality
 import           GHC.TypeNats
 import           Numeric.Natural
 import           Text.Printf
-import qualified Data.Map        as M
+import           Unsafe.Coerce
+import qualified Data.Map           as M
+import qualified Data.Vector.Sized  as SV
 
 -- | A bidirectional "view" to transform the data type before binning.
 --
@@ -184,7 +197,7 @@ type Binner s a = forall n. KnownNat n => a -> Bin s n
 --
 -- @
 -- 'withBinner' myBinSpec $ \toBin ->
---     toBin @5 2.8523      -- split into five bins
+--     toBin @5 2.8523      -- assign to one of five bins
 -- @
 withBinner
     :: RealFrac b
@@ -193,21 +206,32 @@ withBinner
     -> r
 withBinner bs f = reify bs $ \(_ :: Proxy s) -> f @s mkBin
 
+binSpecIntervals
+    :: forall n a b. (KnownNat n, Fractional b)
+    => BinSpec a b
+    -> SV.Vector (n + 1) a
+binSpecIntervals bs = SV.generate $ \i ->
+    case strengthen i of
+      Just (fromIntegral->i') -> scaleOut $ i' * t + scaleIn (bsMin bs)
+      Nothing                 -> bsMax bs
+  where
+    t        = tick bs (natVal (Proxy @n))
+    scaleIn  = view (bsView bs)
+    scaleOut = review (bsView bs)
+
 binRange_
     :: forall n a b. (KnownNat n, Fractional b)
     => BinSpec a b
     -> Pointed (Finite n)
     -> (Maybe a, Maybe a)
 binRange_ bs = \case
-    Bot                     -> ( Nothing       , Just (bsMin bs))
-    PElem (fromIntegral->i) -> ( Just (scaleOut ( i      * t + scaleIn (bsMin bs)))
-                               , Just (scaleOut ((i + 1) * t + scaleIn (bsMin bs)))
-                               )
-    Top                     -> ( Just (bsMax bs), Nothing       )
+    Bot     -> ( Nothing         , Just (SV.head v))
+    PElem i -> ( Just (v `SV.index` weaken i)
+               , Just (v `SV.index` shift i )
+               )
+    Top     -> ( Just (SV.last v), Nothing         )
   where
-    t        = tick bs (natVal (Proxy @n))
-    scaleIn  = view (bsView bs)
-    scaleOut = review (bsView bs)
+    v        = binSpecIntervals @n bs
 
 -- | Extract the minimum and maximum of the range indicabed by a given
 -- 'Bin'.
@@ -266,8 +290,8 @@ instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec a b)) => Show (Bi
     showsPrec d b = showParen (d > 10) $
       showString "Bin " . showString (displayBin @n show b)
 
--- | Given a container of @a@s, generate a frequency map of how often
--- values in a given discrete bin occurred.
+-- | Generate a histogram: given a container of @a@s, generate a frequency
+-- map of how often values in a given discrete bin occurred.
 --
 -- @
 -- xs :: [Double]
@@ -303,3 +327,41 @@ binFreq toBin = M.unionsWith (+) . map go . toList
   where
     go :: a -> M.Map (Bin s n) Int
     go x = M.singleton (toBin x) 1
+
+-- | A @'Bin' s n@ is a single bin index out of @n@ partitions of the
+-- original data set, according to a 'BinSpec' represented by @s@.
+--
+-- All 'Bin's with the same @s@ follow the same 'BinSpec', so you can
+-- safely use 'binRange' 'withBinner'.
+--
+-- Actually has @n + 2@ partitions, since it also distinguishes values
+-- that are outside the 'BinSpec' range.
+data SomeBin a n = forall s b. (Fractional b, Reifies s (BinSpec a b)) 
+    => SomeBin { getSomeBin :: Bin s n }
+
+deriving instance (KnownNat n, Show a) => Show (SomeBin a n)
+
+-- | Compares if the ranges match.  Note that this is less performant than
+-- comparing the original 'Bin's, or extracting and using 'sameBinSpec'.
+instance (KnownNat n, Eq a) => Eq (SomeBin a n) where
+    SomeBin x == SomeBin y = binRange x == binRange y
+
+-- | Lexicographical ordering -- compares the lower bound, then the upper
+-- bounds.  Note that this is less performant than comparing the original
+-- 'Bin's, or extracting and using 'sameBinSpec'
+instance (KnownNat n, Ord a) => Ord (SomeBin a n) where
+    compare (SomeBin x) (SomeBin y) = compare (binRange x) (binRange y)
+
+-- | Verify that the two reified 'BinSpec' types refer to the same one,
+-- allowing you to use functions like '==' and 'compare' on 'Bin's.
+sameBinSpec
+    :: forall s t a b p. (Reifies s (BinSpec a b), Reifies t (BinSpec a b), Eq a, Fractional b)
+    => p s
+    -> p t
+    -> Maybe (s :~: t)
+sameBinSpec _ _ = do
+    guard $ binSpecIntervals @3 bs1 == binSpecIntervals @3 bs2
+    pure (unsafeCoerce Refl)
+  where
+    bs1 = reflect (Proxy @s)
+    bs2 = reflect (Proxy @t)
