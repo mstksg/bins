@@ -40,7 +40,7 @@ xs = [1..100]
 
 main :: IO ()
 main = withBinner (logBS @10 5 50) $ toBin -&gt;
-    mapM_ ((b, n) -&gt; putStrLn (displayBin 4 b ++ &quot;t&quot; ++ show n))
+    mapM_ ((b, n) -&gt; putStrLn (displayBinDouble 4 b ++ &quot;t&quot; ++ show n))
   . M.toList
   $ binFreq toBin xs
 </pre><pre>(-inf .. 5.0000)        4

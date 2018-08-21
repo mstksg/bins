@@ -178,7 +178,7 @@ sameBinSpec :: forall s t n a b p. (Reifies s (BinSpec n a b), Reifies t (BinSpe
 --   
 --   main :: IO ()
 --   main = withBinner (logBS @10 5 50) $ toBin -&gt;
---       mapM_ ((b, n) -&gt; putStrLn (displayBin 4 b ++ "t" ++ show n))
+--       mapM_ ((b, n) -&gt; putStrLn (displayBinDouble 4 b ++ "t" ++ show n))
 --     . M.toList
 --     $ binFreq toBin xs
 --   </pre>
