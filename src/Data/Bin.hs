@@ -34,8 +34,8 @@
 
 module Data.Bin (
   -- * Specifying the binning
-    BinView, linView, logView
-  , BinSpec(..), linBS, logBS
+    BinView, linView, logView, gaussView
+  , BinSpec(..), linBS, logBS, gaussBS
   , binSpecIntervals
   -- * Creating and manipulating bins
   , Bin, Binner, withBinner
@@ -60,11 +60,11 @@ import           Data.Reflection
 import           Data.Tagged
 import           Data.Type.Equality
 import           GHC.TypeNats
-import           Numeric.Natural
+import           Numeric.SpecFunctions
 import           Text.Printf
 import           Unsafe.Coerce
-import qualified Data.Map           as M
-import qualified Data.Vector.Sized  as SV
+import qualified Data.Map              as M
+import qualified Data.Vector.Sized     as SV
 
 -- | A bidirectional "view" to transform the data type before binning.
 --
@@ -94,6 +94,19 @@ linView = binView id id
 -- higher levels).
 logView :: Floating a => BinView a a
 logView = binView log exp
+
+-- | Binning based on a Gaussian Distribution.  Bins "by standard
+-- deviation"; there are more bins the closer to the mean you get, and less
+-- bins the farther away.
+gaussView
+    :: RealFrac a
+    => a           -- ^ center / mean
+    -> a           -- ^ standard deviation
+    -> BinView a a
+gaussView μ σ = binView to from
+  where
+    to   = realToFrac . erf . realToFrac . (/ σ) . subtract μ
+    from = (+ μ) . (* σ) . realToFrac . invErf . realToFrac
 
 view :: BinView a b -> a -> b
 view v = runForget (v (Forget id))
@@ -133,6 +146,22 @@ linBS mn mx = BS mn mx linView
 -- @
 logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
 logBS mn mx = BS mn mx logView
+
+-- | Convenient constructor for a 'BinSpec' for a gaussian scaling.  Uses
+-- the midpoint as the inferred mean.
+--
+-- Meant to be used with type application syntax:
+--
+-- @
+-- 'gaussBS' @5 0 10
+-- @
+gaussBS
+    :: forall n a. RealFrac a
+    => a
+    -> a
+    -> a
+    -> BinSpec n a a
+gaussBS σ mn mx = BS mn mx (gaussView ((mn + mx)/2) σ)
 
 -- | Data type extending a value with an extra "minimum" and "maximum"
 -- value.

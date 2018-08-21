@@ -29,6 +29,7 @@ dependencies:
 - finite-typelits
 - ghc-typelits-knownnat
 - ghc-typelits-natnormalise
+- math-functions
 - profunctors
 - reflection
 - tagged
