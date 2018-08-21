@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor                            #-}
 {-# LANGUAGE ExistentialQuantification                #-}
 {-# LANGUAGE FlexibleContexts                         #-}
+{-# LANGUAGE KindSignatures                           #-}
 {-# LANGUAGE LambdaCase                               #-}
 {-# LANGUAGE RankNTypes                               #-}
 {-# LANGUAGE RecordWildCards                          #-}
@@ -35,6 +36,7 @@ module Data.Bin (
   -- * Specifying the binning
     BinView, linView, logView
   , BinSpec(..), linBS, logBS
+  , binSpecIntervals
   -- * Creating and manipulating bins
   , Bin, Binner, withBinner
   -- ** Inspecting bins
@@ -101,19 +103,35 @@ review v = unTagged . v . Tagged
 
 -- | Specification of binning.
 --
--- A @'BinSpec' a b@ will bin values of type @a@, according to a scaling in
--- type @b@.
-data BinSpec a b = BS { bsMin  :: a             -- ^ lower bound of values
-                      , bsMax  :: a             -- ^ upper bound of values
-                      , bsView :: BinView a b   -- ^ binning view
-                      }
+-- A @'BinSpec' n a b@ will bin values of type @a@ into @n@ bins, according
+-- to a scaling in type @b@.
+--
+-- Constructor is meant to be used with type application syntax to indicate
+-- @n@, like @'BinSpec' @5 0 10 'linView'@
+data BinSpec (n :: Nat) a b =
+        BS { bsMin  :: a             -- ^ lower bound of values
+           , bsMax  :: a             -- ^ upper bound of values
+           , bsView :: BinView a b   -- ^ binning view
+           }
 
 -- | Convenient constructor for a 'BinSpec' for a linear scaling.
-linBS :: a -> a -> BinSpec a a
+--
+-- Meant to be used with type application syntax:
+--
+-- @
+-- 'linBS' @5 0 10
+-- @
+linBS :: forall n a. a -> a -> BinSpec n a a
 linBS mn mx = BS mn mx linView
 
 -- | Convenient constructor for a 'BinSpec' for a logarithmic scaling.
-logBS :: Floating a => a -> a -> BinSpec a a
+--
+-- Meant to be used with type application syntax:
+--
+-- @
+-- 'logBS' @5 0 10
+-- @
+logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
 logBS mn mx = BS mn mx logView
 
 -- | Data type extending a value with an extra "minimum" and "maximum"
@@ -155,8 +173,11 @@ binIx = _binIx
 binFin :: Bin s n -> Maybe (Finite n)
 binFin = pElem . binIx
 
-tick :: Fractional b => BinSpec a b -> Natural -> b
-tick BS{..} n = totRange / fromIntegral n
+tick
+    :: forall n a b. (KnownNat n, Fractional b)
+    => BinSpec n a b
+    -> b
+tick BS{..} = totRange / fromIntegral (natVal (Proxy @n))
   where
     totRange = view bsView bsMax - view bsView bsMin
 
@@ -170,26 +191,26 @@ packExtFinite n
 
 mkBin_
     :: forall n a b. (KnownNat n, RealFrac b)
-    => BinSpec a b
+    => BinSpec n a b
     -> a
     -> Pointed (Finite n)
 mkBin_ bs = packExtFinite
           . round
-          . (/ tick bs (natVal (Proxy @n)))
+          . (/ tick bs)
           . subtract (scaleIn (bsMin bs))
           . scaleIn
   where
     scaleIn = view (bsView bs)
 
 mkBin
-    :: forall n a b s. (KnownNat n, RealFrac b, Reifies s (BinSpec a b))
+    :: forall n a b s. (KnownNat n, RealFrac b, Reifies s (BinSpec n a b))
     => a
     -> Bin s n
 mkBin = Bin . mkBin_ (reflect (Proxy @s))
 
 -- | The type of a "binning function", given by 'withBinner'.  See
 -- 'withBinner' for information on how to use.
-type Binner s a = forall n. KnownNat n => a -> Bin s n
+type Binner s n a = a -> Bin s n
 
 -- | With a 'BinSpec', give a "binning function" that you can use to create
 -- bins within a continuation.  The binning function is meant to be used
@@ -197,31 +218,33 @@ type Binner s a = forall n. KnownNat n => a -> Bin s n
 --
 -- @
 -- 'withBinner' myBinSpec $ \toBin ->
---     toBin @5 2.8523      -- assign to one of five bins
+--     doStuffWith (toBin 2.8523)
 -- @
 withBinner
-    :: RealFrac b
-    => BinSpec a b
-    -> (forall s. Reifies s (BinSpec a b) => Binner s a -> r)
+    :: (KnownNat n, RealFrac b)
+    => BinSpec n a b
+    -> (forall s. Reifies s (BinSpec n a b) => Binner s n a -> r)
     -> r
 withBinner bs f = reify bs $ \(_ :: Proxy s) -> f @s mkBin
 
+-- | Generate a vector of the boundaries deriving the bins from
+-- a 'BinSpec'.  Can be useful for debugging.
 binSpecIntervals
     :: forall n a b. (KnownNat n, Fractional b)
-    => BinSpec a b
+    => BinSpec n a b
     -> SV.Vector (n + 1) a
 binSpecIntervals bs = SV.generate $ \i ->
     case strengthen i of
       Just (fromIntegral->i') -> scaleOut $ i' * t + scaleIn (bsMin bs)
       Nothing                 -> bsMax bs
   where
-    t        = tick bs (natVal (Proxy @n))
+    t        = tick bs
     scaleIn  = view (bsView bs)
     scaleOut = review (bsView bs)
 
 binRange_
     :: forall n a b. (KnownNat n, Fractional b)
-    => BinSpec a b
+    => BinSpec n a b
     -> Pointed (Finite n)
     -> (Maybe a, Maybe a)
 binRange_ bs = \case
@@ -237,9 +260,9 @@ binRange_ bs = \case
 -- 'Bin'.
 --
 -- A 'Nothing' value indicates that we are outside of the normal range of
--- the 'BinSpec', so is "unbounded".
+-- the 'BinSpec', so is "unbounded" in that direction.
 binRange
-    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b))
     => Bin s n
     -> (Maybe a, Maybe a)
 binRange = binRange_ (reflect (Proxy @s)) . binIx
@@ -247,9 +270,9 @@ binRange = binRange_ (reflect (Proxy @s)) . binIx
 -- | Extract the minimum of the range indicabed by a given 'Bin'.
 --
 -- A 'Nothing' value means that the original value was below the minimum
--- limit of the 'BinSpec', so is "unbounded".
+-- limit of the 'BinSpec', so is "unbounded" in the lower direction.
 binMin
-    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b))
     => Bin s n
     -> Maybe a
 binMin = fst . binRange
@@ -257,15 +280,16 @@ binMin = fst . binRange
 -- | Extract the maximum of the range indicabed by a given 'Bin'.
 --
 -- A 'Nothing' value means that the original value was above the maximum
--- limit of the 'BinSpec', so is "unbounded".
+-- limit of the 'BinSpec', so is "unbounded" in the upper direction.
 binMax
-    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b))
     => Bin s n
     -> Maybe a
 binMax = snd . binRange
 
+-- | Display the interval maintained by a 'Bin'.
 displayBin
-    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b))
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b))
     => (a -> String)        -- ^ how to display a value
     -> Bin s n
     -> String
@@ -279,14 +303,16 @@ displayBin f b = printf "%s .. %s" mn' mx'
             Nothing -> "+inf)"
             Just m  -> f m ++ ")"
 
+-- | Display the interval maintained by a 'Bin', if the 'Bin' contains
+-- a 'Double'.
 displayBinDouble
-    :: forall n b s. (KnownNat n, Fractional b, Reifies s (BinSpec Double b))
+    :: forall n b s. (KnownNat n, Fractional b, Reifies s (BinSpec n Double b))
     => Int                      -- ^ number of decimal places to round
     -> Bin s n
     -> String
 displayBinDouble d = displayBin (printf ("%." ++ show d ++ "f"))
 
-instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec a b)) => Show (Bin s n) where
+instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec n a b)) => Show (Bin s n) where
     showsPrec d b = showParen (d > 10) $
       showString "Bin " . showString (displayBin @n show b)
 
@@ -298,10 +324,10 @@ instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec a b)) => Show (Bi
 -- xs = [1..100]
 --
 -- main :: IO ()
--- main = withBinner (logBS 5 50) $ \toBin ->
+-- main = withBinner (logBS @10 5 50) $ \toBin ->
 --     mapM_ (\(b, n) -> putStrLn (displayBin 4 b ++ "\t" ++ show n))
 --   . M.toList
---   $ binFreq @10 toBin xs
+--   $ binFreq toBin xs
 -- @
 --
 -- @
@@ -319,8 +345,8 @@ instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec a b)) => Show (Bi
 -- [50.0000 .. +inf)       56
 -- @
 binFreq
-    :: forall n t a s. (KnownNat n, Foldable t)
-    => Binner s a
+    :: forall n t a s. Foldable t
+    => Binner s n a
     -> t a
     -> M.Map (Bin s n) Int
 binFreq toBin = M.unionsWith (+) . map go . toList
@@ -335,7 +361,7 @@ binFreq toBin = M.unionsWith (+) . map go . toList
 --
 -- To be able to "unify" two 'Bin's inside a 'SomeBin', use 'sameBinSpec'
 -- to verify that the two 'SomeBin's were created with the same 'BinSpec'.
-data SomeBin a n = forall s b. (Fractional b, Reifies s (BinSpec a b)) 
+data SomeBin a n = forall s b. (Fractional b, Reifies s (BinSpec n a b)) 
     => SomeBin { getSomeBin :: Bin s n }
 
 deriving instance (KnownNat n, Show a) => Show (SomeBin a n)
@@ -352,14 +378,15 @@ instance (KnownNat n, Ord a) => Ord (SomeBin a n) where
     compare (SomeBin x) (SomeBin y) = compare (binRange x) (binRange y)
 
 -- | Verify that the two reified 'BinSpec' types refer to the same one,
--- allowing you to use functions like '==' and 'compare' on 'Bin's.
+-- allowing you to use functions like '==' and 'compare' on 'Bin's that you
+-- get out of a 'SomeBin'.
 sameBinSpec
-    :: forall s t a b p. (Reifies s (BinSpec a b), Reifies t (BinSpec a b), Eq a, Fractional b)
+    :: forall s t n a b p. (Reifies s (BinSpec n a b), Reifies t (BinSpec n a b), KnownNat n, Eq a, Fractional b)
     => p s
     -> p t
     -> Maybe (s :~: t)
 sameBinSpec _ _ = do
-    guard $ binSpecIntervals @3 bs1 == binSpecIntervals @3 bs2
+    guard $ binSpecIntervals bs1 == binSpecIntervals bs2
     pure (unsafeCoerce Refl)
   where
     bs1 = reflect (Proxy @s)
