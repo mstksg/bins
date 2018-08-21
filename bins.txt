@@ -35,9 +35,13 @@ logView :: Floating a => BinView a a
 
 -- | Specification of binning.
 --   
---   A <tt><a>BinSpec</a> a b</tt> will bin values of type <tt>a</tt>,
---   according to a scaling in type <tt>b</tt>.
-data BinSpec a b
+--   A <tt><a>BinSpec</a> n a b</tt> will bin values of type <tt>a</tt>
+--   into <tt>n</tt> bins, according to a scaling in type <tt>b</tt>.
+--   
+--   Constructor is meant to be used with type application syntax to
+--   indicate <tt>n</tt>, like <tt><a>BinSpec</a> </tt>5 0 10
+--   <a>linView</a>@
+data BinSpec (n :: Nat) a b
 BS :: a -> a -> BinView a b -> BinSpec a b
 
 -- | lower bound of values
@@ -50,10 +54,26 @@ BS :: a -> a -> BinView a b -> BinSpec a b
 [bsView] :: BinSpec a b -> BinView a b
 
 -- | Convenient constructor for a <a>BinSpec</a> for a linear scaling.
-linBS :: a -> a -> BinSpec a a
+--   
+--   Meant to be used with type application syntax:
+--   
+--   <pre>
+--   <a>linBS</a> @5 0 10
+--   </pre>
+linBS :: forall n a. a -> a -> BinSpec n a a
 
 -- | Convenient constructor for a <a>BinSpec</a> for a logarithmic scaling.
-logBS :: Floating a => a -> a -> BinSpec a a
+--   
+--   Meant to be used with type application syntax:
+--   
+--   <pre>
+--   <a>logBS</a> @5 0 10
+--   </pre>
+logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
+
+-- | Generate a vector of the boundaries deriving the bins from a
+--   <a>BinSpec</a>. Can be useful for debugging.
+binSpecIntervals :: forall n a b. (KnownNat n, Fractional b) => BinSpec n a b -> Vector (n + 1) a
 
 -- | A <tt><a>Bin</a> s n</tt> is a single bin index out of <tt>n</tt>
 --   partitions of the original data set, according to a <a>BinSpec</a>
@@ -69,7 +89,7 @@ data Bin s n
 
 -- | The type of a "binning function", given by <a>withBinner</a>. See
 --   <a>withBinner</a> for information on how to use.
-type Binner s a = forall n. KnownNat n => a -> Bin s n
+type Binner s n a = a -> Bin s n
 
 -- | With a <a>BinSpec</a>, give a "binning function" that you can use to
 --   create bins within a continuation. The binning function is meant to be
@@ -77,9 +97,9 @@ type Binner s a = forall n. KnownNat n => a -> Bin s n
 --   
 --   <pre>
 --   <a>withBinner</a> myBinSpec $ toBin -&gt;
---       toBin @5 2.8523      -- assign to one of five bins
+--       show (toBin 2.8523)
 --   </pre>
-withBinner :: RealFrac b => BinSpec a b -> (forall s. Reifies s (BinSpec a b) => Binner s a -> r) -> r
+withBinner :: (KnownNat n, RealFrac b) => BinSpec n a b -> (forall s. Reifies s (BinSpec n a b) => Binner s n a -> r) -> r
 
 -- | Extract, potentially, the <a>Bin</a> index. Will return <a>Nothing</a>
 --   if the original value was outside the <a>BinSpec</a> range.
@@ -92,22 +112,29 @@ binFin :: Bin s n -> Maybe (Finite n)
 --   <a>Bin</a>.
 --   
 --   A <a>Nothing</a> value indicates that we are outside of the normal
---   range of the <a>BinSpec</a>, so is "unbounded".
-binRange :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> (Maybe a, Maybe a)
+--   range of the <a>BinSpec</a>, so is "unbounded" in that direction.
+binRange :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) => Bin s n -> (Maybe a, Maybe a)
 
 -- | Extract the minimum of the range indicabed by a given <a>Bin</a>.
 --   
 --   A <a>Nothing</a> value means that the original value was below the
---   minimum limit of the <a>BinSpec</a>, so is "unbounded".
-binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
+--   minimum limit of the <a>BinSpec</a>, so is "unbounded" in the lower
+--   direction.
+binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) => Bin s n -> Maybe a
 
 -- | Extract the maximum of the range indicabed by a given <a>Bin</a>.
 --   
 --   A <a>Nothing</a> value means that the original value was above the
---   maximum limit of the <a>BinSpec</a>, so is "unbounded".
-binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => Bin s n -> Maybe a
-displayBin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec a b)) => (a -> String) -> Bin s n -> String
-displayBinDouble :: forall n b s. (KnownNat n, Fractional b, Reifies s (BinSpec Double b)) => Int -> Bin s n -> String
+--   maximum limit of the <a>BinSpec</a>, so is "unbounded" in the upper
+--   direction.
+binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) => Bin s n -> Maybe a
+
+-- | Display the interval maintained by a <a>Bin</a>.
+displayBin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) => (a -> String) -> Bin s n -> String
+
+-- | Display the interval maintained by a <a>Bin</a>, if the <a>Bin</a>
+--   contains a <a>Double</a>.
+displayBinDouble :: forall n b s. (KnownNat n, Fractional b, Reifies s (BinSpec n Double b)) => Int -> Bin s n -> String
 
 -- | Data type extending a value with an extra "minimum" and "maximum"
 --   value.
@@ -139,8 +166,8 @@ SomeBin :: Bin s n -> SomeBin a n
 
 -- | Verify that the two reified <a>BinSpec</a> types refer to the same
 --   one, allowing you to use functions like <a>==</a> and <a>compare</a>
---   on <a>Bin</a>s.
-sameBinSpec :: forall s t a b p. (Reifies s (BinSpec a b), Reifies t (BinSpec a b), Eq a, Fractional b) => p s -> p t -> Maybe (s :~: t)
+--   on <a>Bin</a>s that you get out of a <a>SomeBin</a>.
+sameBinSpec :: forall s t n a b p. (Reifies s (BinSpec n a b), Reifies t (BinSpec n a b), KnownNat n, Eq a, Fractional b) => p s -> p t -> Maybe (s :~: t)
 
 -- | Generate a histogram: given a container of <tt>a</tt>s, generate a
 --   frequency map of how often values in a given discrete bin occurred.
@@ -150,27 +177,27 @@ sameBinSpec :: forall s t a b p. (Reifies s (BinSpec a b), Reifies t (BinSpec a 
 --   xs = [1..100]
 --   
 --   main :: IO ()
---   main = withBinner (logBS 5 50) $ toBin -&gt;
+--   main = withBinner (logBS @10 5 50) $ toBin -&gt;
 --       mapM_ ((b, n) -&gt; putStrLn (displayBin 4 b ++ "t" ++ show n))
 --     . M.toList
---     $ binFreq @10 toBin xs
+--     $ binFreq toBin xs
 --   </pre>
 --   
 --   <pre>
 --   (-inf .. 5.0000)        4
---   [5.0000 .. 6.2946)      1
---   [6.2946 .. 7.9245)      2
---   [7.9245 .. 9.9763)      1
+--   [5.0000 .. 6.2946)      2
+--   [6.2946 .. 7.9245)      1
+--   [7.9245 .. 9.9763)      2
 --   [9.9763 .. 12.5594)     3
 --   [12.5594 .. 15.8114)    3
---   [15.8114 .. 19.9054)    3
---   [19.9054 .. 25.0594)    5
+--   [15.8114 .. 19.9054)    4
+--   [19.9054 .. 25.0594)    6
 --   [25.0594 .. 31.5479)    6
---   [31.5479 .. 39.7164)    7
---   [39.7164 .. 50.0000)    9
---   [50.0000 .. +inf)       56
+--   [31.5479 .. 39.7164)    8
+--   [39.7164 .. 50.0000)    10
+--   [50.0000 .. +inf)       51
 --   </pre>
-binFreq :: forall n t a s. (KnownNat n, Foldable t) => Binner s a -> t a -> Map (Bin s n) Int
+binFreq :: forall n t a s. Foldable t => Binner s n a -> t a -> Map (Bin s n) Int
 instance GHC.Classes.Ord (Data.Bin.Bin s n)
 instance GHC.Classes.Eq (Data.Bin.Bin s n)
 instance GHC.Base.Functor Data.Bin.Pointed
@@ -180,4 +207,4 @@ instance GHC.Show.Show a => GHC.Show.Show (Data.Bin.Pointed a)
 instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a) => GHC.Show.Show (Data.Bin.SomeBin a n)
 instance (GHC.TypeNats.KnownNat n, GHC.Classes.Eq a) => GHC.Classes.Eq (Data.Bin.SomeBin a n)
 instance (GHC.TypeNats.KnownNat n, GHC.Classes.Ord a) => GHC.Classes.Ord (Data.Bin.SomeBin a n)
-instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a, GHC.Real.Fractional b, Data.Reflection.Reifies s (Data.Bin.BinSpec a b)) => GHC.Show.Show (Data.Bin.Bin s n)
+instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a, GHC.Real.Fractional b, Data.Reflection.Reifies s (Data.Bin.BinSpec n a b)) => GHC.Show.Show (Data.Bin.Bin s n)
