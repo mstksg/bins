@@ -38,13 +38,13 @@ module Data.Bin (
   , BinSpec(..), linBS, logBS, gaussBS
   , binSpecIntervals
   -- * Creating and manipulating bins
-  , Bin, Binner, withBinner
+  , Bin, Binner, withBinner, fromFin
   -- ** Inspecting bins
   , binFin, binRange, binMin, binMax
   -- ** Showing bins
   , displayBin, displayBinDouble
   -- *** In-depth inspection
-  , Pointed(..), pElem, binIx
+  , Pointed(..), pElem, binIx, fromIx
   -- * Untyped
   , SomeBin(..), sameBinSpec
   -- * Handy use patterns
@@ -102,11 +102,11 @@ gaussView
     :: RealFrac a
     => a           -- ^ center / mean
     -> a           -- ^ standard deviation
-    -> BinView a a
+    -> BinView a Double
 gaussView μ σ = binView to from
   where
-    to   = realToFrac . erf . realToFrac . (/ σ) . subtract μ
-    from = (+ μ) . (* σ) . realToFrac . invErf . realToFrac
+    to   = erf . realToFrac . (/ σ) . subtract μ
+    from = (+ μ) . (* σ) . realToFrac . invErf
 
 view :: BinView a b -> a -> b
 view v = runForget (v (Forget id))
@@ -160,7 +160,7 @@ gaussBS
     => a
     -> a
     -> a
-    -> BinSpec n a a
+    -> BinSpec n a Double
 gaussBS σ mn mx = BS mn mx (gaussView ((mn + mx)/2) σ)
 
 -- | Data type extending a value with an extra "minimum" and "maximum"
@@ -183,6 +183,8 @@ pElem = \case
 --
 -- All 'Bin's with the same @s@ follow the same 'BinSpec', so you can
 -- safely use 'binRange' 'withBinner'.
+--
+-- It has useful 'Eq' and 'Ord' instances.
 --
 -- Actually has @n + 2@ partitions, since it also distinguishes values
 -- that are outside the 'BinSpec' range.
@@ -382,6 +384,17 @@ binFreq toBin = M.unionsWith (+) . map go . toList
   where
     go :: a -> M.Map (Bin s n) Int
     go x = M.singleton (toBin x) 1
+
+-- | Construct a 'Bin' if you know the bin number you want to specify, or
+-- if the bin is over or under the maximum.
+fromIx :: Pointed (Finite n) -> Bin s n
+fromIx = Bin
+
+-- | Construct a 'Bin' if you know the bin number you want to specify.  See
+-- 'fromIx' if you want to specify bins that are over or under the maximum,
+-- as well.
+fromFin :: Finite n -> Bin s n
+fromFin = Bin . PElem
 
 -- | A @'SomeBin' a n@ is @'Bin' s n@, except with the 'BinSpec' s hidden.
 -- It's useful for returning out of 'withBinner'.
