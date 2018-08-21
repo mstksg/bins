@@ -325,7 +325,7 @@ instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec n a b)) => Show (
 --
 -- main :: IO ()
 -- main = withBinner (logBS @10 5 50) $ \toBin ->
---     mapM_ (\(b, n) -> putStrLn (displayBin 4 b ++ "\t" ++ show n))
+--     mapM_ (\(b, n) -> putStrLn (displayBinDouble 4 b ++ "\t" ++ show n))
 --   . M.toList
 --   $ binFreq toBin xs
 -- @
