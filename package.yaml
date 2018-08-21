@@ -1,5 +1,5 @@
 name:                bins
-version:             0.1.0.0
+version:             0.1.1.0
 github:              "mstksg/bins"
 license:             BSD3
 author:              "Justin Le"
@@ -11,8 +11,8 @@ extra-source-files:
 - CHANGELOG.md
 
 # Metadata used when publishing your package
-# synopsis:            Short description of your package
-# category:            Web
+synopsis:            Aggregate continuous values into discrete bins
+category:            Math
 
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is

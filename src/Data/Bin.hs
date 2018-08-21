@@ -41,10 +41,11 @@ module Data.Bin (
   , Bin, Binner, withBinner, fromFin
   -- ** Inspecting bins
   , binFin, binRange, binMin, binMax
+  , binFinExt, binFinComp
   -- ** Showing bins
   , displayBin, displayBinDouble
   -- *** In-depth inspection
-  , Pointed(..), pElem, binIx, fromIx
+  , Pointed(..), pointed, pElem, binIx, fromIx
   -- * Untyped
   , SomeBin(..), sameBinSpec
   -- * Handy use patterns
@@ -170,13 +171,25 @@ data Pointed a = Bot
                | Top
   deriving (Show, Eq, Ord, Functor)
 
+-- | Church-style deconstructor for 'Pointed', analogous to 'maybe',
+-- 'either', and 'bool'.
+--
+-- @since 0.1.1.0
+pointed
+    :: b                -- ^ return if 'Bot'
+    -> (a -> b)         -- ^ apply if 'PElem'
+    -> b                -- ^ return if 'Top'
+    -> Pointed a
+    -> b
+pointed bot pelem top = \case
+    Bot     -> bot
+    PElem x -> pelem x
+    Top     -> top
+
 -- | Extract the item from a 'Pointed' if it is neither the extra minimum
 -- or maximum.
 pElem :: Pointed a -> Maybe a
-pElem = \case
-    Bot     -> Nothing
-    PElem x -> Just x
-    Top     -> Nothing
+pElem = pointed Nothing Just Nothing
 
 -- | A @'Bin' s n@ is a single bin index out of @n@ partitions of the
 -- original data set, according to a 'BinSpec' represented by @s@.
@@ -200,9 +213,31 @@ binIx = _binIx
 -- original value was outside the 'BinSpec' range.
 --
 -- See 'binIx' for a more specific version, which indicates if the original
--- value was too high or too low.
+-- value was too high or too low.  Also see 'binFinExt', which extends the
+-- range of the 'Finite' to embed lower or higher values.
 binFin :: Bin s n -> Maybe (Finite n)
 binFin = pElem . binIx
+
+-- | Like 'binFin', but return the true "n + 2" slot number of a 'Bin',
+-- where 'minBound' is "below minimum" and 'maxBound' is "above maximum"
+--
+-- @since 0.1.1.0
+binFinExt
+    :: KnownNat n
+    => Bin s n
+    -> Finite (1 + n + 1)
+binFinExt = pointed minBound (weaken . shift) maxBound . binIx
+
+-- | Like 'binFin', but squishes or compresses "below minimum" to "above
+-- maximum" bins into the 'Finite', counting them in the same bin as the
+-- minimum and maximum bin, respectively.
+--
+-- @since 0.1.1.0
+binFinComp
+    :: KnownNat n
+    => Bin s n
+    -> Finite n
+binFinComp = pointed minBound id maxBound . binIx
 
 tick
     :: forall n a b. (KnownNat n, Fractional b)
@@ -212,11 +247,11 @@ tick BS{..} = totRange / fromIntegral (natVal (Proxy @n))
   where
     totRange = view bsView bsMax - view bsView bsMin
 
-packExtFinite
+packPointed
     :: KnownNat n
     => Integer
     -> Pointed (Finite n)
-packExtFinite n
+packPointed n
     | n < 0     = Bot
     | otherwise = maybe Top PElem . packFinite $ n
 
@@ -225,7 +260,7 @@ mkBin_
     => BinSpec n a b
     -> a
     -> Pointed (Finite n)
-mkBin_ bs = packExtFinite
+mkBin_ bs = packPointed
           . floor
           . (/ tick bs)
           . subtract (scaleIn (bsMin bs))
@@ -251,6 +286,9 @@ type Binner s n a = a -> Bin s n
 -- 'withBinner' myBinSpec $ \toBin ->
 --     show (toBin 2.8523)
 -- @
+--
+-- Uses a Rank-N continution to ensure that you can only compare 'Bin's
+-- constructed from the same 'BinSpec'/binning function.
 withBinner
     :: (KnownNat n, RealFrac b)
     => BinSpec n a b
@@ -394,7 +432,7 @@ fromIx = Bin
 -- 'fromIx' if you want to specify bins that are over or under the maximum,
 -- as well.
 fromFin :: Finite n -> Bin s n
-fromFin = Bin . PElem
+fromFin = fromIx . PElem
 
 -- | A @'SomeBin' a n@ is @'Bin' s n@, except with the 'BinSpec' s hidden.
 -- It's useful for returning out of 'withBinner'.
