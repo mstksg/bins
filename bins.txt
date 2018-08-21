@@ -2,7 +2,9 @@
 -- See Hoogle, http://www.haskell.org/hoogle/
 
 
--- | Please see the README on GitHub at
+-- | Aggregate continuous values into discrete bins
+--   
+--   Please see the README on GitHub at
 --   <a>https://github.com/mstksg/bins#readme</a>
 @package bins
 @version 0.1.0.0
