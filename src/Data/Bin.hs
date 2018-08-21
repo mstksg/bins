@@ -195,7 +195,7 @@ mkBin_
     -> a
     -> Pointed (Finite n)
 mkBin_ bs = packExtFinite
-          . round
+          . floor
           . (/ tick bs)
           . subtract (scaleIn (bsMin bs))
           . scaleIn
@@ -218,7 +218,7 @@ type Binner s n a = a -> Bin s n
 --
 -- @
 -- 'withBinner' myBinSpec $ \toBin ->
---     doStuffWith (toBin 2.8523)
+--     show (toBin 2.8523)
 -- @
 withBinner
     :: (KnownNat n, RealFrac b)
@@ -332,17 +332,17 @@ instance (KnownNat n, Show a, Fractional b, Reifies s (BinSpec n a b)) => Show (
 --
 -- @
 -- (-inf .. 5.0000)        4
--- [5.0000 .. 6.2946)      1
--- [6.2946 .. 7.9245)      2
--- [7.9245 .. 9.9763)      1
+-- [5.0000 .. 6.2946)      2
+-- [6.2946 .. 7.9245)      1
+-- [7.9245 .. 9.9763)      2
 -- [9.9763 .. 12.5594)     3
 -- [12.5594 .. 15.8114)    3
--- [15.8114 .. 19.9054)    3
--- [19.9054 .. 25.0594)    5
+-- [15.8114 .. 19.9054)    4
+-- [19.9054 .. 25.0594)    6
 -- [25.0594 .. 31.5479)    6
--- [31.5479 .. 39.7164)    7
--- [39.7164 .. 50.0000)    9
--- [50.0000 .. +inf)       56
+-- [31.5479 .. 39.7164)    8
+-- [39.7164 .. 50.0000)    10
+-- [50.0000 .. +inf)       51
 -- @
 binFreq
     :: forall n t a s. Foldable t
