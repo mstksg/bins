@@ -33,7 +33,7 @@ dependencies:
 - profunctors
 - reflection
 - tagged
-- vector-sized
+- vector-sized >= 1.0
 
 library:
   source-dirs: src
