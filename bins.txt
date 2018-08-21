@@ -33,6 +33,11 @@ linView :: BinView a a
 --   higher levels).
 logView :: Floating a => BinView a a
 
+-- | Binning based on a Gaussian Distribution. Bins "by standard
+--   deviation"; there are more bins the closer to the mean you get, and
+--   less bins the farther away.
+gaussView :: RealFrac a => a -> a -> BinView a Double
+
 -- | Specification of binning.
 --   
 --   A <tt><a>BinSpec</a> n a b</tt> will bin values of type <tt>a</tt>
@@ -71,6 +76,16 @@ linBS :: forall n a. a -> a -> BinSpec n a a
 --   </pre>
 logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
 
+-- | Convenient constructor for a <a>BinSpec</a> for a gaussian scaling.
+--   Uses the midpoint as the inferred mean.
+--   
+--   Meant to be used with type application syntax:
+--   
+--   <pre>
+--   <a>gaussBS</a> @5 0 10
+--   </pre>
+gaussBS :: forall n a. RealFrac a => a -> a -> a -> BinSpec n a Double
+
 -- | Generate a vector of the boundaries deriving the bins from a
 --   <a>BinSpec</a>. Can be useful for debugging.
 binSpecIntervals :: forall n a b. (KnownNat n, Fractional b) => BinSpec n a b -> Vector (n + 1) a
@@ -82,6 +97,8 @@ binSpecIntervals :: forall n a b. (KnownNat n, Fractional b) => BinSpec n a b ->
 --   All <a>Bin</a>s with the same <tt>s</tt> follow the same
 --   <a>BinSpec</a>, so you can safely use <a>binRange</a>
 --   <a>withBinner</a>.
+--   
+--   It has useful <a>Eq</a> and <a>Ord</a> instances.
 --   
 --   Actually has <tt>n + 2</tt> partitions, since it also distinguishes
 --   values that are outside the <a>BinSpec</a> range.
@@ -100,6 +117,11 @@ type Binner s n a = a -> Bin s n
 --       show (toBin 2.8523)
 --   </pre>
 withBinner :: (KnownNat n, RealFrac b) => BinSpec n a b -> (forall s. Reifies s (BinSpec n a b) => Binner s n a -> r) -> r
+
+-- | Construct a <a>Bin</a> if you know the bin number you want to specify.
+--   See <a>fromIx</a> if you want to specify bins that are over or under
+--   the maximum, as well.
+fromFin :: Finite n -> Bin s n
 
 -- | Extract, potentially, the <a>Bin</a> index. Will return <a>Nothing</a>
 --   if the original value was outside the <a>BinSpec</a> range.
@@ -150,6 +172,10 @@ pElem :: Pointed a -> Maybe a
 -- | A more specific version of <a>binFin</a> that indicates whether or not
 --   the value was too high or too low for the <a>BinSpec</a> range.
 binIx :: Bin s n -> Pointed (Finite n)
+
+-- | Construct a <a>Bin</a> if you know the bin number you want to specify,
+--   or if the bin is over or under the maximum.
+fromIx :: Pointed (Finite n) -> Bin s n
 
 -- | A <tt><a>SomeBin</a> a n</tt> is <tt><a>Bin</a> s n</tt>, except with
 --   the <a>BinSpec</a> s hidden. It's useful for returning out of
