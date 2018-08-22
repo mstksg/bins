@@ -7,7 +7,7 @@
 --   Please see the README on GitHub at
 --   <a>https://github.com/mstksg/bins#readme</a>
 @package bins
-@version 0.1.0.0
+@version 0.1.1.0
 
 
 -- | Tools for aggregating numeric values into a set of discrete bins
@@ -118,6 +118,9 @@ type Binner s n a = a -> Bin s n
 --   <a>withBinner</a> myBinSpec $ toBin -&gt;
 --       show (toBin 2.8523)
 --   </pre>
+--   
+--   Uses a Rank-N continution to ensure that you can only compare
+--   <a>Bin</a>s constructed from the same <a>BinSpec</a>/binning function.
 withBinner :: (KnownNat n, RealFrac b) => BinSpec n a b -> (forall s. Reifies s (BinSpec n a b) => Binner s n a -> r) -> r
 
 -- | Construct a <a>Bin</a> if you know the bin number you want to specify.
@@ -129,7 +132,9 @@ fromFin :: Finite n -> Bin s n
 --   if the original value was outside the <a>BinSpec</a> range.
 --   
 --   See <a>binIx</a> for a more specific version, which indicates if the
---   original value was too high or too low.
+--   original value was too high or too low. Also see <a>binFinExt</a>,
+--   which extends the range of the <a>Finite</a> to embed lower or higher
+--   values.
 binFin :: Bin s n -> Maybe (Finite n)
 
 -- | Extract the minimum and maximum of the range indicabed by a given
@@ -153,6 +158,16 @@ binMin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) 
 --   direction.
 binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) => Bin s n -> Maybe a
 
+-- | Like <a>binFin</a>, but return the true "n + 2" slot number of a
+--   <a>Bin</a>, where <a>minBound</a> is "below minimum" and
+--   <a>maxBound</a> is "above maximum"
+binFinExt :: KnownNat n => Bin s n -> Finite (1 + n + 1)
+
+-- | Like <a>binFin</a>, but squishes or compresses "below minimum" to
+--   "above maximum" bins into the <a>Finite</a>, counting them in the same
+--   bin as the minimum and maximum bin, respectively.
+binFinComp :: KnownNat n => Bin s n -> Finite n
+
 -- | Display the interval maintained by a <a>Bin</a>.
 displayBin :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) => (a -> String) -> Bin s n -> String
 
@@ -166,6 +181,10 @@ data Pointed a
 Bot :: Pointed a
 PElem :: !a -> Pointed a
 Top :: Pointed a
+
+-- | Church-style deconstructor for <a>Pointed</a>, analogous to
+--   <a>maybe</a>, <a>either</a>, and <tt>bool</tt>.
+pointed :: b -> (a -> b) -> b -> Pointed a -> b
 
 -- | Extract the item from a <a>Pointed</a> if it is neither the extra
 --   minimum or maximum.
