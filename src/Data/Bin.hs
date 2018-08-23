@@ -289,8 +289,7 @@ mkBin = Bin . mkBin_ (reflect (Proxy @s))
 type Binner s n a = a -> Bin s n
 
 -- | With a 'BinSpec', give a "binning function" that you can use to create
--- bins within a continuation.  The binning function is meant to be used
--- with TypeApplications to specify how many bins to use:
+-- bins within a continuation.
 --
 -- @
 -- 'withBinner' myBinSpec $ \toBin ->
