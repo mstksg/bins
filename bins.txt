@@ -67,7 +67,7 @@ BS :: a -> a -> BinView a b -> BinSpec a b
 --   <pre>
 --   <a>linBS</a> @5 0 10
 --   </pre>
-linBS :: forall n a. a -> a -> BinSpec n a a
+linBS :: forall n a. () => a -> a -> BinSpec n a a
 
 -- | Convenient constructor for a <a>BinSpec</a> for a logarithmic scaling.
 --   
@@ -84,8 +84,10 @@ logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
 --   Meant to be used with type application syntax:
 --   
 --   <pre>
---   <a>gaussBS</a> @5 0 10
+--   <a>gaussBS</a> @5 3 0 10
 --   </pre>
+--   
+--   indicates that you want 5 bins.
 gaussBS :: forall n a. RealFrac a => a -> a -> a -> BinSpec n a Double
 
 -- | Generate a vector of the boundaries deriving the bins from a
