@@ -135,7 +135,11 @@ data BinSpec (n :: Nat) a b =
 -- @
 -- 'linBS' @5 0 10
 -- @
-linBS :: forall n a. a -> a -> BinSpec n a a
+linBS
+    :: forall n a. ()
+    => a                            -- ^ Lower bound
+    -> a                            -- ^ Upper bound
+    -> BinSpec n a a
 linBS mn mx = BS mn mx linView
 
 -- | Convenient constructor for a 'BinSpec' for a logarithmic scaling.
@@ -145,7 +149,11 @@ linBS mn mx = BS mn mx linView
 -- @
 -- 'logBS' @5 0 10
 -- @
-logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
+logBS
+    :: forall n a. Floating a
+    => a                            -- ^ Lower bound
+    -> a                            -- ^ Upper bound
+    -> BinSpec n a a
 logBS mn mx = BS mn mx logView
 
 -- | Convenient constructor for a 'BinSpec' for a gaussian scaling.  Uses
@@ -154,13 +162,15 @@ logBS mn mx = BS mn mx logView
 -- Meant to be used with type application syntax:
 --
 -- @
--- 'gaussBS' @5 0 10
+-- 'gaussBS' @5 3 0 10
 -- @
+--
+-- indicates that you want 5 bins.
 gaussBS
     :: forall n a. RealFrac a
-    => a
-    -> a
-    -> a
+    => a                            -- ^ Standard Deviation
+    -> a                            -- ^ Lower bound
+    -> a                            -- ^ Upper bound
     -> BinSpec n a Double
 gaussBS σ mn mx = BS mn mx (gaussView ((mn + mx)/2) σ)
 
@@ -441,7 +451,7 @@ fromFin = fromIx . PElem
 --
 -- To be able to "unify" two 'Bin's inside a 'SomeBin', use 'sameBinSpec'
 -- to verify that the two 'SomeBin's were created with the same 'BinSpec'.
-data SomeBin a n = forall s b. (Fractional b, Reifies s (BinSpec n a b)) 
+data SomeBin a n = forall s b. (Fractional b, Reifies s (BinSpec n a b))
     => SomeBin { getSomeBin :: Bin s n }
 
 deriving instance (KnownNat n, Show a) => Show (SomeBin a n)
