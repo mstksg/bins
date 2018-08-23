@@ -113,8 +113,7 @@ data Bin s n
 type Binner s n a = a -> Bin s n
 
 -- | With a <a>BinSpec</a>, give a "binning function" that you can use to
---   create bins within a continuation. The binning function is meant to be
---   used with TypeApplications to specify how many bins to use:
+--   create bins within a continuation.
 --   
 --   <pre>
 --   <a>withBinner</a> myBinSpec $ toBin -&gt;
