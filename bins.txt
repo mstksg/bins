@@ -7,7 +7,7 @@
 --   Please see the README on GitHub at
 --   <a>https://github.com/mstksg/bins#readme</a>
 @package bins
-@version 0.1.1.0
+@version 0.1.1.1
 
 
 -- | Tools for aggregating numeric values into a set of discrete bins
@@ -17,28 +17,6 @@
 --   the main binned data type, and <a>binFreq</a> for a common usage
 --   example.
 module Data.Bin
-
--- | A bidirectional "view" to transform the data type before binning.
---   
---   See <a>linView</a> for a linear binning, and <a>logView</a> for a
---   logarithmic binning.
---   
---   This type is essentially <tt>Iso</tt> from the <i>lens</i> library,
---   and any <tt>Iso'</tt> from lens can be used here. However, it is
---   important that all of these represent <i>monotonic</i> isomorphisms.
-type BinView a b = forall p. Profunctor p => p b b -> p a a
-
--- | Linear binning
-linView :: BinView a a
-
--- | Logarithmic binning (smaller bins at lower levels, larger bins at
---   higher levels).
-logView :: Floating a => BinView a a
-
--- | Binning based on a Gaussian Distribution. Bins "by standard
---   deviation"; there are more bins the closer to the mean you get, and
---   less bins the farther away.
-gaussView :: RealFrac a => a -> a -> BinView a Double
 
 -- | Specification of binning.
 --   
@@ -89,6 +67,36 @@ logBS :: forall n a. Floating a => a -> a -> BinSpec n a a
 --   
 --   indicates that you want 5 bins.
 gaussBS :: forall n a. RealFrac a => a -> a -> a -> BinSpec n a Double
+
+-- | A bidirectional "view" to transform the data type before binning.
+--   
+--   See <a>linView</a> for a linear binning, and <a>logView</a> for a
+--   logarithmic binning. You can construct your own custom transformer
+--   using <a>binView</a>.
+--   
+--   This type is essentially <tt>Iso</tt> from the <i>lens</i> library,
+--   and any <tt>Iso'</tt> from lens can be used here. However, it is
+--   important that all of these represent <i>monotonic</i> isomorphisms.
+type BinView a b = forall p. Profunctor p => p b b -> p a a
+
+-- | Construct a <a>BinView</a> based on "to" and "from" functions
+--   
+--   It is important that the "to" and "from" functions be <i>inverses</i>
+--   of each other. Furthermore, both "to" and "from" should be
+--   <b>monotonic</b>.
+binView :: (a -> b) -> (b -> a) -> BinView a b
+
+-- | Linear binning
+linView :: BinView a a
+
+-- | Logarithmic binning (smaller bins at lower levels, larger bins at
+--   higher levels).
+logView :: Floating a => BinView a a
+
+-- | Binning based on a Gaussian Distribution. Bins "by standard
+--   deviation"; there are more bins the closer to the mean you get, and
+--   less bins the farther away.
+gaussView :: RealFrac a => a -> a -> BinView a Double
 
 -- | Generate a vector of the boundaries deriving the bins from a
 --   <a>BinSpec</a>. Can be useful for debugging.
