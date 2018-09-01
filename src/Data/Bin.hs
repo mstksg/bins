@@ -34,8 +34,10 @@
 
 module Data.Bin (
   -- * Specifying the binning
-    BinView, linView, logView, gaussView
-  , BinSpec(..), linBS, logBS, gaussBS
+    BinSpec(..), linBS, logBS, gaussBS
+  -- ** 'BinView'
+  , BinView, binView, linView, logView, gaussView
+  -- ** Inspecting 'BinSpec'
   , binSpecIntervals
   -- * Creating and manipulating bins
   , Bin, Binner, withBinner, fromFin
@@ -70,7 +72,7 @@ import qualified Data.Vector.Sized     as SV
 -- | A bidirectional "view" to transform the data type before binning.
 --
 -- See 'linView' for a linear binning, and 'logView' for a logarithmic
--- binning.
+-- binning.  You can construct your own custom transformer using 'binView'.
 --
 -- This type is essentially 'Iso' from the /lens/ library, and any 'Iso''
 -- from lens can be used here.  However, it is important that all of these

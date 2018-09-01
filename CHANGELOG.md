@@ -1,5 +1,14 @@
 # Changelog
 
+Version 0.1.1.1
+---------------
+
+*August 31, 2018*
+
+<https://github.com/mstksg/backprop/releases/tag/v0.1.1.1>
+
+*   Exported *binView*, which was mistakenly hidden.
+
 Version 0.1.1.0
 ---------------
 
