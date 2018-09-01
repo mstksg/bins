@@ -27,52 +27,52 @@ matrix:
   # https://github.com/hvr/multi-ghc-travis
   # - env: BUILD=cabal GHCVER=8.0.2 CABALVER=1.24 HAPPYVER=1.19.5 ALEXVER=3.1.7
   #   compiler: ": #GHC 8.0.2"
-  #   addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2,happy-1.19.5,alex-3.1.7,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+  #   addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
 
   - env: BUILD=cabal GHCVER=8.2.2 CABALVER=2.0 HAPPYVER=1.19.5 ALEXVER=3.1.7
     compiler: ": #GHC 8.2.2"
-    addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2,happy-1.19.5,alex-3.1.7,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [cabal-install-2.0,ghc-8.2.2,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
 
   - env: BUILD=cabal GHCVER=8.4.3 CABALVER=2.2 HAPPYVER=1.19.5 ALEXVER=3.1.7
     compiler: ": #GHC 8.4.3"
-    addons: {apt: {packages: [cabal-install-2.2,ghc-8.4.3,happy-1.19.5,alex-3.1.7,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [cabal-install-2.2,ghc-8.4.3,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
 
   # Build with the newest GHC and cabal-install. This is an accepted failure,
   # see below.
   - env: BUILD=cabal GHCVER=head  CABALVER=head HAPPYVER=1.19.5 ALEXVER=3.1.7
     compiler: ": #GHC HEAD"
-    addons: {apt: {packages: [cabal-install-head,ghc-head,happy-1.19.5,alex-3.1.7,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [cabal-install-head,ghc-head,happy-1.19.5,alex-3.1.7], sources: [hvr-ghc]}}
 
   # The Stack builds. We can pass in arbitrary Stack arguments via the ARGS
   # variable, such as using --stack-yaml to point to a different file.
   - env: BUILD=stack ARGS=""
     compiler: ": #stack default"
-    addons: {apt: {packages: [ghc-8.2.2,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [ghc-8.2.2], sources: [hvr-ghc]}}
 
   # - env: BUILD=stack ARGS="--resolver lts-8"
   #   compiler: ": #stack 8.0.2"
-  #   addons: {apt: {packages: [ghc-8.0.2,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+  #   addons: {apt: {packages: [ghc-8.0.2], sources: [hvr-ghc]}}
 
   # - env: BUILD=stack ARGS="--resolver lts-9"
   #   compiler: ": #stack 8.0.2"
-  #   addons: {apt: {packages: [ghc-8.0.2,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+  #   addons: {apt: {packages: [ghc-8.0.2], sources: [hvr-ghc]}}
 
   - env: BUILD=stack ARGS="--resolver lts-10"
     compiler: ": #stack 8.2.2"
-    addons: {apt: {packages: [ghc-8.2.2,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [ghc-8.2.2], sources: [hvr-ghc]}}
 
   - env: BUILD=stack ARGS="--resolver lts-11"
     compiler: ": #stack 8.2.2"
-    addons: {apt: {packages: [ghc-8.2.2,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [ghc-8.2.2], sources: [hvr-ghc]}}
 
   - env: BUILD=stack ARGS="--resolver lts-12"
     compiler: ": #stack 8.2.2"
-    addons: {apt: {packages: [ghc-8.4.3,libblas-dev,liblapack-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [ghc-8.4.3], sources: [hvr-ghc]}}
 
   # Nightly builds are allowed to fail
   - env: BUILD=stack ARGS="--resolver nightly"
     compiler: ": #stack nightly"
-    addons: {apt: {packages: [libblas-dev,liblapack-dev]}}
+    addons: {apt: {packages: []}}
 
   # Build on OS X in addition to Linux
   - env: BUILD=stack ARGS=""
