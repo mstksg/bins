@@ -18,7 +18,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: nightly-2019-06-28
+resolver: nightly-2019-10-02
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -40,8 +40,7 @@ packages:
 # using the same syntax as the packages field.
 # (e.g., acme-missiles-0.3)
 extra-deps:
-- finite-typelits-0.1.4.2
-- vector-sized-1.1.1.0
+- vector-sized-1.4.0.0
 - indexed-list-literals-0.2.1.2
 
 build:
