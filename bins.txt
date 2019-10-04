@@ -7,7 +7,7 @@
 --   Please see the README on GitHub at
 --   <a>https://github.com/mstksg/bins#readme</a>
 @package bins
-@version 0.1.1.1
+@version 0.1.2.0
 
 
 -- | Tools for aggregating numeric values into a set of discrete bins
@@ -27,16 +27,16 @@ module Data.Bin
 --   indicate <tt>n</tt>, like <tt><a>BinSpec</a> </tt>5 0 10
 --   <a>linView</a>@
 data BinSpec (n :: Nat) a b
-BS :: a -> a -> BinView a b -> BinSpec a b
+BS :: a -> a -> BinView a b -> BinSpec (n :: Nat) a b
 
 -- | lower bound of values
-[bsMin] :: BinSpec a b -> a
+[bsMin] :: BinSpec (n :: Nat) a b -> a
 
 -- | upper bound of values
-[bsMax] :: BinSpec a b -> a
+[bsMax] :: BinSpec (n :: Nat) a b -> a
 
 -- | binning view
-[bsView] :: BinSpec a b -> BinView a b
+[bsView] :: BinSpec (n :: Nat) a b -> BinView a b
 
 -- | Convenient constructor for a <a>BinSpec</a> for a linear scaling.
 --   
@@ -170,7 +170,7 @@ binMax :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b)) 
 -- | Like <a>binFin</a>, but return the true "n + 2" slot number of a
 --   <a>Bin</a>, where <a>minBound</a> is "below minimum" and
 --   <a>maxBound</a> is "above maximum"
-binFinExt :: KnownNat n => Bin s n -> Finite (1 + n + 1)
+binFinExt :: KnownNat n => Bin s n -> Finite ((1 + n) + 1)
 
 -- | Like <a>binFin</a>, but squishes or compresses "below minimum" to
 --   "above maximum" bins into the <a>Finite</a>, counting them in the same
@@ -206,6 +206,14 @@ binIx :: Bin s n -> Pointed (Finite n)
 -- | Construct a <a>Bin</a> if you know the bin number you want to specify,
 --   or if the bin is over or under the maximum.
 fromIx :: Pointed (Finite n) -> Bin s n
+
+-- | <a>Expand</a> a <a>Pointed</a> containing a <a>Finite</a> to a
+--   wider-ranged <a>Finite</a>. Used for <a>binFinExt</a>
+expandFin :: KnownNat n => Pointed (Finite n) -> Finite ((1 + n) + 1)
+
+-- | The inverse of <a>expandFin</a>: "re-pack" a <a>Finite</a> back into a
+--   <a>Pointed</a> containing a narrower-ranged <a>Finite</a>.
+unexpandFin :: KnownNat n => Finite ((1 + n) + 1) -> Pointed (Finite n)
 
 -- | A <tt><a>SomeBin</a> a n</tt> is <tt><a>Bin</a> s n</tt>, except with
 --   the <a>BinSpec</a> s hidden. It's useful for returning out of
