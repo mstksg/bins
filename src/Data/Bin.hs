@@ -47,7 +47,7 @@ module Data.Bin (
   -- ** Showing bins
   , displayBin, displayBinDouble
   -- *** In-depth inspection
-  , Pointed(..), pointed, pElem, binIx, fromIx
+  , Pointed(..), pointed, pElem, binIx, fromIx, expandFin, unexpandFin
   -- * Untyped
   , SomeBin(..), sameBinSpec
   -- * Handy use patterns
@@ -238,7 +238,7 @@ binFinExt
     :: KnownNat n
     => Bin s n
     -> Finite (1 + n + 1)
-binFinExt = pointed minBound (weaken . shift) maxBound . binIx
+binFinExt = expandFin . binIx
 
 -- | Like 'binFin', but squishes or compresses "below minimum" to "above
 -- maximum" bins into the 'Finite', counting them in the same bin as the
@@ -444,6 +444,25 @@ fromIx = Bin
 -- as well.
 fromFin :: Finite n -> Bin s n
 fromFin = fromIx . PElem
+
+-- | "Expand" a 'Pointed' containing a 'Finite' to a wider-ranged 'Finite'.
+-- Used for 'binFinExt'
+--
+-- @since 0.1.2.0
+expandFin :: KnownNat n => Pointed (Finite n) -> Finite (1 + n + 1)
+expandFin = pointed minBound (weaken . shift) maxBound
+
+-- | The inverse of 'expandFin': "re-pack" a 'Finite' back into
+-- a 'Pointed' containing a narrower-ranged 'Finite'.
+--
+-- @since 0.1.2.0
+unexpandFin :: KnownNat n => Finite (1 + n + 1) -> Pointed (Finite n)
+unexpandFin x = case unshift x of
+  Nothing -> Bot
+  Just y  -> case strengthen y of
+    Nothing -> Top
+    Just z  -> PElem z
+
 
 -- | A @'SomeBin' a n@ is @'Bin' s n@, except with the 'BinSpec' s hidden.
 -- It's useful for returning out of 'withBinner'.

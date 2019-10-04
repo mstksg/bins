@@ -1,5 +1,15 @@
 # Changelog
 
+Version 0.1.2.0
+---------------
+
+*October 4, 2019*
+
+<https://github.com/mstksg/backprop/releases/tag/v0.1.2.0>
+
+*   Add `expandFin` and `unexpandFin`, meant to make conversion between
+    `Pointed` and `Finite` more streamlined.
+
 Version 0.1.1.1
 ---------------
 
