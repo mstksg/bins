@@ -9,7 +9,7 @@ Version 0.1.3.0
 
 *   Add `binSpecCenters` and `binMid`, to get the midpoints of intervals and
     bins.
-*   Add `Enum` and `Bounded` instances for `Pointed`.
+*   Add `Enum` and `Bounded` instances for `Pointed` and `Bin`.
 
 Version 0.1.2.0
 ---------------

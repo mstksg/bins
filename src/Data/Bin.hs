@@ -3,6 +3,7 @@
 {-# LANGUAGE DeriveFunctor                            #-}
 {-# LANGUAGE ExistentialQuantification                #-}
 {-# LANGUAGE FlexibleContexts                         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving               #-}
 {-# LANGUAGE KindSignatures                           #-}
 {-# LANGUAGE LambdaCase                               #-}
 {-# LANGUAGE RankNTypes                               #-}
@@ -230,7 +231,7 @@ pElem = pointed Nothing Just Nothing
 -- Actually has @n + 2@ partitions, since it also distinguishes values
 -- that are outside the 'BinSpec' range.
 newtype Bin s n = Bin { _binIx :: Pointed (Finite n) }
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Enum, Bounded)
 
 -- | A more specific version of 'binFin' that indicates whether or not the
 -- value was too high or too low for the 'BinSpec' range.
