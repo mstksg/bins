@@ -280,6 +280,8 @@ sameBinSpec :: forall s t n a b p. (Reifies s (BinSpec n a b), Reifies t (BinSpe
 --   [50.0000 .. +inf)       51
 --   </pre>
 binFreq :: forall n t a s. Foldable t => Binner s n a -> t a -> Map (Bin s n) Int
+instance GHC.Enum.Bounded (Data.Bin.Bin s n)
+instance GHC.TypeNats.KnownNat n => GHC.Enum.Enum (Data.Bin.Bin s n)
 instance GHC.Classes.Ord (Data.Bin.Bin s n)
 instance GHC.Classes.Eq (Data.Bin.Bin s n)
 instance GHC.Base.Functor Data.Bin.Pointed
