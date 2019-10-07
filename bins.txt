@@ -145,6 +145,9 @@ withBinner :: (KnownNat n, RealFrac b) => BinSpec n a b -> (forall s. Reifies s 
 --   the maximum, as well.
 fromFin :: Finite n -> Bin s n
 
+-- | An (ordered) list of all <a>Bin</a>s.
+bins :: KnownNat n => [Bin s n]
+
 -- | Extract, potentially, the <a>Bin</a> index. Will return <a>Nothing</a>
 --   if the original value was outside the <a>BinSpec</a> range.
 --   
