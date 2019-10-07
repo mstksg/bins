@@ -41,7 +41,7 @@ module Data.Bin (
   -- ** Inspecting 'BinSpec'
   , binSpecIntervals, binSpecCenters
   -- * Creating and manipulating bins
-  , Bin, Binner, withBinner, fromFin
+  , Bin, Binner, withBinner, fromFin, bins
   -- ** Inspecting bins
   , binFin, binRange, binMin, binMax, binMid
   , binFinExt, binFinComp
@@ -506,6 +506,12 @@ fromIx = Bin
 -- as well.
 fromFin :: Finite n -> Bin s n
 fromFin = fromIx . PElem
+
+-- | An (ordered) list of all 'Bin's.
+--
+-- @since 0.1.3.0
+bins :: KnownNat n => [Bin s n]
+bins = Bin <$> (Bot : map PElem finites ++ [Top])
 
 -- | "Expand" a 'Pointed' containing a 'Finite' to a wider-ranged 'Finite'.
 -- Used for 'binFinExt'
