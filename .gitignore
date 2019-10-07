@@ -1,3 +1,5 @@
 .stack-work/
 bins.cabal
 *~
+.ghc.environment.*
+dist-newstyle

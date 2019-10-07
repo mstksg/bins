@@ -38,11 +38,11 @@ module Data.Bin (
   -- ** 'BinView'
   , BinView, binView, linView, logView, gaussView
   -- ** Inspecting 'BinSpec'
-  , binSpecIntervals
+  , binSpecIntervals, binSpecCenters
   -- * Creating and manipulating bins
   , Bin, Binner, withBinner, fromFin
   -- ** Inspecting bins
-  , binFin, binRange, binMin, binMax
+  , binFin, binRange, binMin, binMax, binMid
   , binFinExt, binFinComp
   -- ** Showing bins
   , displayBin, displayBinDouble
@@ -322,6 +322,26 @@ binSpecIntervals bs = SV.generate $ \i ->
     scaleIn  = view (bsView bs)
     scaleOut = review (bsView bs)
 
+-- | Generate a vector of the scaled centers of each bin derived from
+-- a 'BinSpec'.  Can be useful for debugging.
+--
+-- Note that for non-linear scales, this centering respects the scale.  For
+-- example, for logarithmic scales, this is a "log-aware" center: it gives
+-- the midpoint in log-space, not linear-space.
+--
+-- @since 0.1.3.0
+binSpecCenters
+    :: forall n a b. (KnownNat n, Fractional b)
+    => BinSpec n a b
+    -> SV.Vector n a
+binSpecCenters bs = SV.generate $ \i ->
+    scaleOut $ (fromIntegral i + 0.5) * t + scaleIn (bsMin bs)
+  where
+    t        = tick bs
+    scaleIn  = view (bsView bs)
+    scaleOut = review (bsView bs)
+
+
 binRange_
     :: forall n a b. (KnownNat n, Fractional b)
     => BinSpec n a b
@@ -366,6 +386,31 @@ binMax
     => Bin s n
     -> Maybe a
 binMax = snd . binRange
+
+-- | Extract the center of the range indicabed by a given 'Bin'.
+--
+-- A 'Nothing' value means that the original value was either below or above the maximum
+-- limit of the 'BinSpec'.
+--
+-- Note that for non-linear scales, this centering respects the scale.  For
+-- example, for logarithmic scales, this is a "log-aware" center: it gives
+-- the midpoint in log-space, not linear-space.
+--
+-- @since 0.1.3.0
+binMid
+    :: forall n a b s. (KnownNat n, Fractional b, Reifies s (BinSpec n a b))
+    => Bin s n
+    -> Maybe a
+binMid = binMid_ (reflect (Proxy @s)) . binIx
+
+binMid_
+    :: forall n a b. (KnownNat n, Fractional b)
+    => BinSpec n a b
+    -> Pointed (Finite n)
+    -> Maybe a
+binMid_ bs = fmap (v `SV.index`) . pElem
+  where
+    v = binSpecCenters @n bs
 
 -- | Display the interval maintained by a 'Bin'.
 displayBin
@@ -497,6 +542,7 @@ sameBinSpec
     -> Maybe (s :~: t)
 sameBinSpec _ _ = do
     guard $ binSpecIntervals bs1 == binSpecIntervals bs2
+    guard $ binSpecCenters bs1 == binSpecCenters bs2
     pure (unsafeCoerce Refl)
   where
     bs1 = reflect (Proxy @s)

@@ -1,5 +1,15 @@
 # Changelog
 
+Version 0.1.3.0
+---------------
+
+*October 7, 2019*
+
+<https://github.com/mstksg/backprop/releases/tag/v0.1.3.0>
+
+*   Add `binSpecCenters` and `binMid`, to get the midpoints of intervals and
+    bins.
+
 Version 0.1.2.0
 ---------------
 
