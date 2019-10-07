@@ -183,6 +183,22 @@ data Pointed a = Bot
                | Top
   deriving (Show, Eq, Ord, Functor)
 
+-- | @since 0.1.3.0
+instance (Enum a, Bounded a) => Enum (Pointed a) where
+    toEnum i
+      | i == 0 = Bot
+      | i == (fromEnum (maxBound :: a) + 2) = Top
+      | otherwise = PElem (toEnum (i - 1))
+    fromEnum = \case
+      Bot     -> 0
+      PElem x -> fromEnum x + 1
+      Top     -> fromEnum (maxBound :: a) + 2
+
+-- | @since 0.1.3.0
+instance Bounded (Pointed a) where
+    minBound = Bot
+    maxBound = Top
+
 -- | Church-style deconstructor for 'Pointed', analogous to 'maybe',
 -- 'either', and 'bool'.
 --
