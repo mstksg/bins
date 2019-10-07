@@ -290,3 +290,5 @@ instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a) => GHC.Show.Show (Data.Bin.S
 instance (GHC.TypeNats.KnownNat n, GHC.Classes.Eq a) => GHC.Classes.Eq (Data.Bin.SomeBin a n)
 instance (GHC.TypeNats.KnownNat n, GHC.Classes.Ord a) => GHC.Classes.Ord (Data.Bin.SomeBin a n)
 instance (GHC.TypeNats.KnownNat n, GHC.Show.Show a, GHC.Real.Fractional b, Data.Reflection.Reifies s (Data.Bin.BinSpec n a b)) => GHC.Show.Show (Data.Bin.Bin s n)
+instance (GHC.Enum.Enum a, GHC.Enum.Bounded a) => GHC.Enum.Enum (Data.Bin.Pointed a)
+instance GHC.Enum.Bounded (Data.Bin.Pointed a)
