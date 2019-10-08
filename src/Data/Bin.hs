@@ -511,7 +511,11 @@ fromFin = fromIx . PElem
 --
 -- @since 0.1.3.0
 bins :: KnownNat n => [Bin s n]
-bins = Bin <$> (Bot : map PElem finites ++ [Top])
+bins = Bin <$> binser []
+  where
+    binser = (Bot :)
+           . foldr ((.) . (:) . PElem) id finites
+           . (Top :)
 
 -- | "Expand" a 'Pointed' containing a 'Finite' to a wider-ranged 'Finite'.
 -- Used for 'binFinExt'
